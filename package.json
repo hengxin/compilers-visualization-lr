@@ -1,0 +1,23 @@
+{
+  "name": "visual-compiler",
+  "version": "1.0.0",
+  "description": "Visualizing Compilers (LR)",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hengxin/compilers-visualization-lr.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hengxin/compilers-visualization-lr/issues"
+  },
+  "homepage": "https://github.com/hengxin/compilers-visualization-lr#readme",
+  "devDependencies": {
+    "typescript": "^4.5.5"
+  }
+}
