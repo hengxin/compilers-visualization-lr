@@ -12,13 +12,7 @@ import {
     TerminalDef,
     Rule,
     Symbol as _Symbol
-} from "./lib/json_parser.js";
-
-
-const MEMORY = {
-    rules: new Array<Rule>(),
-    symbolMap: new Map<string, _Symbol>(),
-};
+} from "./lib/example_parser.js";
 
 /**
  * LR(0) 项 (Item)
@@ -30,8 +24,21 @@ class LR0Item {
     readonly index: number;
 
     constructor(rule: Rule, index: number = 0) {
+        // TODO assert index <= rule.expansion.length
         this.rule = rule;
         this.index = index;
+    }
+
+    toString(): string {
+        let s = "[ " + this.rule.origin.name + " ->";
+        for (let i = 0; i < this.rule.expansion.length; i++) {
+            s += " ";
+            if (i === this.index) {
+                s += "·";
+            }
+            s += this.rule.expansion[i].name;
+        }
+        return s + (this.end() ? "·" : "") + " ]";
     }
 
     equal(other: LR0Item): boolean {
@@ -74,6 +81,19 @@ class LR0ItemSet {
         this.kernel.forEach((item) => { this.closure.push(item); });
         this.searchIndex = 0;
         this.done = false;
+    }
+
+    toString(): string {
+        if (!this.done) {
+            // TODO 怎么写比较好？
+            return "NEED CLOSURE";
+        }
+        let s = "LR0ItemSet: \n";
+        this.closure.forEach((item) => {
+            s += item.toString() + "\n";
+        });
+        s += "------------";
+        return s;
     }
 
     /**
@@ -130,7 +150,6 @@ class LR0ItemSet {
         // 遍历闭包中的每一项[A -> a·Bb]
         let item = this.closure[this.searchIndex];
         let rightSym: _Symbol = item.rule.expansion[item.index];
-        console.log(rightSym.name)
         // 寻找产生式B -> r
         for (let rule of all) {
             // if (rightSym.eq(rule.origin)) {
@@ -143,13 +162,13 @@ class LR0ItemSet {
                 }
             }
         }
-        ++this.searchIndex;
+        this.searchIndex++;
         // while (this.#searchIndex < this.closure.length) {
         // }
-        if (stepRes.length === 0) {
+        this.closure.push(...stepRes);
+        if (this.searchIndex === this.closure.length) {
             this.done = true;
         }
-        this.closure.push(...stepRes);
         return stepRes;
     }
 
@@ -165,8 +184,8 @@ class LR0ItemSet {
     }
 
     nextSymbols() {
-        let terminalTransitions = new Map<_Symbol, LR0Item[]>();
         let nonTerminalTransitions = new Map<_Symbol, LR0Item[]>();
+        let terminalTransitions = new Map<_Symbol, LR0Item[]>();
         this.closure.forEach((item) => {
             if (!item.end()) {
                 let sym = item.current();
@@ -183,7 +202,7 @@ class LR0ItemSet {
                 }
             }
         });
-        return { terminalTransitions, nonTerminalTransitions };
+        return { nonTerminalTransitions, terminalTransitions, };
     }
 
     gotoByStep(symbol: _Symbol) {
@@ -192,38 +211,57 @@ class LR0ItemSet {
 }
 
 type ClosureExpandList = LR0Item[];
-type AutomatonState = LR0ItemSet;
-interface StatePath {
+
+interface AutomatonStatePath {
     from: number;
     to: number;
     symbol: _Symbol
 }
+type AutomatonState = LR0ItemSet;
+/**
+ * 1: 应该进行CLOSURE操作
+ * 2：应该进行GOTO操作
+ */
+type AutomatonOperation = 1 | 2;
 class Automaton {
     /**
      * 自动机的状态集
      */
-    states: AutomatonState[];
-    paths: StatePath[];
-    // relations:
+    states: AutomatonState[] = [];
+    paths: AutomatonStatePath[] = [];
+    done: boolean = false;
 
-    private stateSearchPtr: number;
+    private stateSearchPtr: number = 0;
+    private op: AutomatonOperation = 1;
+    private memory: ParserMemory = null;
 
-    constructor(startState: AutomatonState) {
-        this.stateSearchPtr = 0;
+    constructor(startState: AutomatonState, memory: ParserMemory) {
+        this.states.push(startState);
+        this.memory = memory;
     }
 
-    currentStateClosure(all: Rule[]) {
-        this.states[this.stateSearchPtr].computeClosure(all);
+    toString(): string {
+        let s = "";
+        this.states.forEach((state) => {
+            s += state.toString() + "\n";
+        });
+        return s;
+    }
+
+    currentStateClosure() {
+        // assert this.stateSearchPtr < this.states.length;
+        this.states[this.stateSearchPtr].computeClosure(this.memory.rules);
     }
 
     bfsByStep() {
-        let { terminalTransitions, nonTerminalTransitions } = this.states[this.stateSearchPtr].nextSymbols();
+        // assert this.stateSearchPtr < this.states.length;
+        let { nonTerminalTransitions, terminalTransitions } = this.states[this.stateSearchPtr].nextSymbols();
+        let stateNum = this.states.length;
         let expand = (kernel: LR0Item[], sym: _Symbol): void => {
             let target = -1;
             // 从一个项集GOTO操作，检查GOTO(I)是否已经存在
-            for (let i = 0; i <= this.stateSearchPtr; ++i) {
+            for (let i = 0; i < stateNum; i++) {
                 if (this.states[i].kernelEqual(kernel)) {
-                    // return // return arrow function
                     target = i;
                     break;
                 }
@@ -238,12 +276,36 @@ class Automaton {
                 symbol: sym
             });
         }
-        terminalTransitions.forEach(expand);
         nonTerminalTransitions.forEach(expand);
-        // TODO 这里可能有问题，terminalTransitions和nonTerminalTransitions都空的话，ptr还加么
-        ++this.stateSearchPtr;
+        terminalTransitions.forEach(expand);
+        this.stateSearchPtr++;
+        if (this.stateSearchPtr >= this.states.length) {
+            this.done = true;
+        }
     }
 
+    next() {
+        if (this.done) {
+            // throw INFO
+        }
+        switch (this.op) {
+            case 1:
+                this.currentStateClosure();
+                this.op = 2;
+                break;
+            case 2:
+                this.bfsByStep();
+                this.op = 1;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+interface ParserMemory {
+    rules: Rule[],
+    symbolMap: Map<string, _Symbol>,
 }
 
 class ControllableLalrParser {
@@ -254,12 +316,13 @@ class ControllableLalrParser {
      * token表示的是具体的内容，即输入流中的每一个此法单元。
      */
 
-    lark: Lark;
-    text: string;
-    automaton: Automaton;
-    tokenList: Token[];
-    rules: Rule[] = null;
-    symbolMap: Map<string, _Symbol> = new Map();
+    lark: Lark = null;
+    text: string = null;
+    automaton: Automaton = null;
+    tokenList: Token[] = null;
+    memory: ParserMemory = null;
+    // rules: Rule[] = null;
+    // symbolMap: Map<string, _Symbol> = new Map();
     startRule: Rule = null;
     currentToken: Token = null;
 
@@ -268,22 +331,28 @@ class ControllableLalrParser {
     constructor(text: string) {
         this.lark = get_parser();
         this.text = text;
-        this.tokenList = null;
-        this.rules = this.lark.rules;
+        this.memory = {
+            rules: this.lark.rules,
+            symbolMap: new Map<string, _Symbol>(),
+        }
+        // this.rules = this.lark.rules;
         // this.#currentToken = null;
         this.init();
         this.lex();
     }
 
+    /**
+     * 获取所有的符号(Symbol)和所有的产生式(Rule)
+     */
     private init() {
         let saveInSymbolMap = (symbol: _Symbol): _Symbol => {
-            if (!this.symbolMap.has(symbol.name)) {
-                this.symbolMap.set(symbol.name, symbol);
+            if (!this.memory.symbolMap.has(symbol.name)) {
+                this.memory.symbolMap.set(symbol.name, symbol);
             }
-            return this.symbolMap.get(symbol.name);
+            return this.memory.symbolMap.get(symbol.name);
         }
 
-        this.rules.forEach((rule) => {
+        this.memory.rules.forEach((rule) => {
             rule.origin = saveInSymbolMap(rule.origin);
             if (rule.origin.name === "start") {
                 this.startRule = rule;
@@ -295,8 +364,7 @@ class ControllableLalrParser {
         if (!this.startRule) {
             throw new Error("未找到开始符号");
         }
-        console.log("INIT");
-        this.automaton = new Automaton(new LR0ItemSet([new LR0Item(this.startRule)]));
+        this.automaton = new Automaton(new LR0ItemSet([new LR0Item(this.startRule)]), this.memory);
     }
 
     lex() {
@@ -313,6 +381,12 @@ class ControllableLalrParser {
         return this.tokenList;
     }
 
+    test() {
+        do {
+            this.automaton.next();
+        } while (!this.automaton.done);
+        console.log(this.automaton.toString());
+    }
 }
 
 export { ControllableLalrParser, LR0Item, LR0ItemSet }

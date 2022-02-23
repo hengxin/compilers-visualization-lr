@@ -4,4 +4,12 @@ e: e "+" t
 t: t "*" f
 | f
 f: "(" e ")"
-| "id"
+| ID
+
+
+ID: LETTER (LETTER|DIGIT)*
+LETTER: "_" | "a".."z" | "A".."Z"
+DIGIT: "0".."9"
+
+%import common.WS
+%ignore WS
