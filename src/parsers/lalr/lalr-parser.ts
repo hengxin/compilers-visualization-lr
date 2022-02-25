@@ -1,4 +1,5 @@
 // const { get_parser, Lark, ParsingFrontend, ConfigurationError, LexerThread, LALR_Parser, ParseConf, ParserState } = require("./lib/json_parser.js");
+import { AutomatonStatePtrOutOfRange, InfoAutomatonDone, LR0ItemIndexOutOfRange, StartSymbolNotFound } from "./lalr-parser-exception.js";
 import {
     get_parser,
     Lark,
@@ -11,7 +12,8 @@ import {
     Token,
     TerminalDef,
     Rule,
-    Symbol as _Symbol
+    Symbol as _Symbol,
+    Terminal
 } from "./lib/example_parser.js";
 
 /**
@@ -24,7 +26,9 @@ class LR0Item {
     readonly index: number;
 
     constructor(rule: Rule, index: number = 0) {
-        // TODO assert index <= rule.expansion.length
+        if (index > rule.expansion.length) {
+            throw LR0ItemIndexOutOfRange();
+        }
         this.rule = rule;
         this.index = index;
     }
@@ -50,7 +54,8 @@ class LR0Item {
     }
 
     /**
-     * 调用该方法前请先判断是否为end
+     * 如果this.end()为false，则返回对应的Symbol。
+     * 如果this.end()为true，则返回undefined。
      */
     current(): _Symbol {
         return this.rule.expansion[this.index];
@@ -72,26 +77,36 @@ class LR0Item {
 class LR0ItemSet {
     kernel: LR0Item[];
     closure: LR0Item[];
-    done: boolean;
-    private searchIndex: number;
+    id: number = 0;
+    transitions: Map<_Symbol, LR0ItemSet> = new Map();
+    /**
+     * 闭包是否计算完成
+     */
+    done: boolean = false;
+    /**
+     * 是否为接受状态
+     */
+    accepting: boolean = false;
+    /**
+     * 是否为结束状态
+     */
+    end: boolean = false;
+    private searchIndex: number = 0;
 
-    constructor(kernel: LR0Item[]) {
+    constructor(kernel: LR0Item[], id: number) {
         this.kernel = kernel;
+        this.id = id;
         this.closure = [];
         this.kernel.forEach((item) => { this.closure.push(item); });
-        this.searchIndex = 0;
-        this.done = false;
     }
 
     toString(): string {
+        let s = "LR0ItemSet " + this.id.toString() + ": \n";
         if (!this.done) {
-            // TODO 怎么写比较好？
-            return "NEED CLOSURE";
+            s += "Closure not computed.";
+        } else {
+            this.closure.forEach((item) => { s += item.toString() + "\n"; });
         }
-        let s = "LR0ItemSet: \n";
-        this.closure.forEach((item) => {
-            s += item.toString() + "\n";
-        });
         s += "------------";
         return s;
     }
@@ -150,6 +165,13 @@ class LR0ItemSet {
         // 遍历闭包中的每一项[A -> a·Bb]
         let item = this.closure[this.searchIndex];
         let rightSym: _Symbol = item.rule.expansion[item.index];
+        // 如果rightSym为undefined，说明某一个LR(0)项的index已经到了末尾，那么这个项集对应的状态为接受状态。
+        if (!rightSym) {
+            this.accepting = true;
+            if (item.rule.origin.name === SYMBOL_START_NAME) {
+                this.end = true;
+            }
+        }
         // 寻找产生式B -> r
         for (let rule of all) {
             // if (rightSym.eq(rule.origin)) {
@@ -163,8 +185,6 @@ class LR0ItemSet {
             }
         }
         this.searchIndex++;
-        // while (this.#searchIndex < this.closure.length) {
-        // }
         this.closure.push(...stepRes);
         if (this.searchIndex === this.closure.length) {
             this.done = true;
@@ -183,7 +203,11 @@ class LR0ItemSet {
         return steps;
     }
 
-    nextSymbols() {
+    setTransition(sym: _Symbol, to: LR0ItemSet) {
+        this.transitions.set(sym, to);
+    }
+
+    computeTransitions() {
         let nonTerminalTransitions = new Map<_Symbol, LR0Item[]>();
         let terminalTransitions = new Map<_Symbol, LR0Item[]>();
         this.closure.forEach((item) => {
@@ -193,49 +217,49 @@ class LR0ItemSet {
                     if (!terminalTransitions.has(sym)) {
                         terminalTransitions.set(sym, []);
                     }
-                    terminalTransitions.get(sym).push(item.advance());
+                    terminalTransitions.get(sym)!.push(item.advance());
                 } else {
                     if (!nonTerminalTransitions.has(sym)) {
                         nonTerminalTransitions.set(sym, []);
                     }
-                    nonTerminalTransitions.get(sym).push(item.advance());
+                    nonTerminalTransitions.get(sym)!.push(item.advance());
                 }
             }
         });
         return { nonTerminalTransitions, terminalTransitions, };
     }
-
-    gotoByStep(symbol: _Symbol) {
-
-    }
 }
 
 type ClosureExpandList = LR0Item[];
 
-interface AutomatonStatePath {
-    from: number;
-    to: number;
-    symbol: _Symbol
-}
 type AutomatonState = LR0ItemSet;
 /**
- * 1: 应该进行CLOSURE操作
- * 2：应该进行GOTO操作
+ * 1: 应该计算ptr指向的状态的CLOSURE
+ * 2：应该计算ptr指向的状态可转移的状态
  */
 type AutomatonOperation = 1 | 2;
+interface AutomatonBfsStepResult {
+    from: AutomatonState,
+    next: AutomatonState
+}
+interface AutomatonStepResult {
+    op: AutomatonOperation,
+    value: Array<ClosureExpandList> | AutomatonBfsStepResult
+}
 class Automaton {
     /**
      * 自动机的状态集
      */
     states: AutomatonState[] = [];
-    paths: AutomatonStatePath[] = [];
+    // paths: AutomatonStatePath[] = [];
     done: boolean = false;
 
-    private stateSearchPtr: number = 0;
+    private statePtr: number = 0;
     private op: AutomatonOperation = 1;
-    private memory: ParserMemory = null;
+    private memory: ParserStore;
 
-    constructor(startState: AutomatonState, memory: ParserMemory) {
+    constructor(startRule: Rule, memory: ParserStore) {
+        let startState = new LR0ItemSet([new LR0Item(startRule)], 0);
         this.states.push(startState);
         this.memory = memory;
     }
@@ -248,14 +272,18 @@ class Automaton {
         return s;
     }
 
-    currentStateClosure() {
-        // assert this.stateSearchPtr < this.states.length;
-        this.states[this.stateSearchPtr].computeClosure(this.memory.rules);
+    currentStateClosure(): Array<ClosureExpandList> {
+        if (this.statePtr >= this.states.length) {
+            throw AutomatonStatePtrOutOfRange();
+        }
+        return this.states[this.statePtr].computeClosure(this.memory.rules);
     }
 
-    bfsByStep() {
-        // assert this.stateSearchPtr < this.states.length;
-        let { nonTerminalTransitions, terminalTransitions } = this.states[this.stateSearchPtr].nextSymbols();
+    bfsByStep(): AutomatonBfsStepResult {
+        if (this.statePtr >= this.states.length) {
+            throw AutomatonStatePtrOutOfRange();
+        }
+        let { nonTerminalTransitions, terminalTransitions } = this.states[this.statePtr].computeTransitions();
         let stateNum = this.states.length;
         let expand = (kernel: LR0Item[], sym: _Symbol): void => {
             let target = -1;
@@ -267,48 +295,194 @@ class Automaton {
                 }
             }
             if (target === -1) {
-                this.states.push(new LR0ItemSet(kernel));
-                target = this.states.length - 1;
+                target = this.states.length;
+                this.states.push(new LR0ItemSet(kernel, target));
             }
-            this.paths.push({
-                from: this.stateSearchPtr,
-                to: target,
-                symbol: sym
-            });
+            this.states[this.statePtr].setTransition(sym, this.states[target]);
         }
         nonTerminalTransitions.forEach(expand);
         terminalTransitions.forEach(expand);
-        this.stateSearchPtr++;
-        if (this.stateSearchPtr >= this.states.length) {
+        this.statePtr++;
+        if (this.statePtr >= this.states.length) {
             this.done = true;
         }
+        return {
+            from: this.states[this.statePtr - 1],
+            next: this.states[this.statePtr]
+        }
     }
 
-    next() {
+    nextStep(): AutomatonStepResult {
         if (this.done) {
-            // throw INFO
+            throw InfoAutomatonDone();
         }
-        switch (this.op) {
-            case 1:
-                this.currentStateClosure();
-                this.op = 2;
-                break;
-            case 2:
-                this.bfsByStep();
-                this.op = 1;
-                break;
-            default:
-                break;
+        if (this.op === 1) {
+            this.op = 2;
+            return { op: 1, value: this.currentStateClosure() };
+        } else {
+            this.op = 1;
+            return { op: 2, value: this.bfsByStep() };
         }
     }
 }
 
-interface ParserMemory {
-    rules: Rule[],
-    symbolMap: Map<string, _Symbol>,
+type ActionName = "Shift" | "Reduce" | "Goto" | "Accept";
+type ActionAbbr = "s" | "r" | "g" | "acc";
+class Action {
+    name: ActionName;
+    abbr: ActionAbbr;
+    arg?: number;
+    protected constructor(name: ActionName, abbr: ActionAbbr, arg?: number) {
+        this.name = name;
+        this.abbr = abbr;
+        if (arg !== undefined) {
+            this.arg = arg;
+        }
+    }
+    toString() {
+        return this.abbr +
+            (this.arg === undefined ? "" : this.arg.toString());
+    }
+}
+class Shift extends Action {
+    constructor(arg: number) {
+        super("Shift", "s", arg);
+    }
+}
+class Reduce extends Action {
+    constructor(arg: number) {
+        super("Reduce", "r", arg);
+    }
+}
+class Goto extends Action {
+    constructor(arg: number) {
+        super("Goto", "g", arg);
+    }
+}
+class Accept extends Action {
+    constructor() {
+        super("Accept", "acc");
+    }
+}
+type ParseTableInner = Array<Map<_Symbol, Action[]>>;
+class ParseTable {
+    actionTable: Array<Map<_Symbol, Action[]>>;
+    gotoTable: Array<Map<_Symbol, Action[]>>;
+    conflict: boolean = false;
+    private automaton: Automaton;
+    private memory: ParserStore;
+
+    constructor(automaton: Automaton, memory: ParserStore) {
+        this.automaton = automaton;
+        this.memory = memory;
+        this.actionTable = new Array(automaton.states.length);
+        this.gotoTable = new Array(automaton.states.length);
+        for (let i = 0; i < automaton.states.length; i++) {
+            this.actionTable[i] = new Map();
+            this.gotoTable[i] = new Map();
+        }
+    }
+
+    toString() {
+        let rows: string[][] = [];
+        let actionHeader: string[] = [], gotoHeader: string[] = [];
+        this.memory.symbolMap.forEach((sym, name) => {
+            sym.is_term ? actionHeader.push(name) : gotoHeader.push(name);
+        });
+        let header = [...actionHeader, ...gotoHeader];
+        this.automaton.states.forEach((state, index) => {
+            let row: string[] = [index.toString()];
+            header.forEach((val) => {
+                let sym = this.memory.symbolMap.get(val)!;
+                let tmp: Action[] = sym.is_term ? this.actionTable[index].get(sym)! : this.gotoTable[index].get(sym)!;
+                row.push(tmp ? tmp.toString() : "");
+            });
+            rows.push(row);
+        });
+        header = ["", ...header];
+        rows = [header, ...rows];
+        let colWidth: number[] = [];
+        for (let i = 0; i < rows[0].length; ++i) {
+            let width = 0;
+            rows.forEach((row) => { width = Math.max(width, row[i].length); });
+            colWidth.push(width);
+        }
+        let actionWidth = actionHeader.length - 1, gotoWidth = gotoHeader.length - 1;
+        for (let i = 0; i < actionHeader.length; i++) {
+            actionWidth += colWidth[i + 1];
+        }
+        for (let i = 0; i < gotoHeader.length; i++) {
+            gotoWidth += colWidth[i + actionHeader.length + 1];
+        }
+        actionWidth = Math.max(actionWidth, 6);
+        gotoWidth = Math.max(gotoWidth, 4);
+        let totalWidth = colWidth[0] + actionWidth + gotoWidth + 2;
+
+        let str = ""
+        str += "-".repeat(totalWidth + 2) + "\n";
+        str += "|" + " ".repeat(colWidth[0]) + "|ACTION" +
+            " ".repeat(actionWidth - 6) + "|GOTO" + " ".repeat(gotoWidth - 4) + "|\n";
+        rows.forEach((row) => {
+            str += "-".repeat(totalWidth + 2) + "\n|";
+            row.forEach((value, index) => { str += value + " ".repeat(colWidth[index] - value.length) + "|"; });
+            str += "\n";
+        });
+        str += "-".repeat(totalWidth + 2);
+        return str;
+    }
+
+    private insert(table: ParseTableInner, stateId: number, sym: _Symbol, action: Action) {
+        if (table[stateId].has(sym)) {
+            this.conflict = true;
+        } else {
+            table[stateId].set(sym, []);
+        }
+        table[stateId].get(sym)!.push(action);
+    }
+
+    compute() {
+        this.automaton.states.forEach((state) => {
+            state.transitions.forEach((target, sym) => {
+                if (sym.is_term) {
+                    // GOTO(Ii, a) = Ij ∧ a ∈ T =⇒ ACTION[i, a] ← sj
+                    this.insert(this.actionTable, state.id, sym, new Shift(target.id));
+                } else {
+                    // GOTO(Ii, A) = Ij ∧ A ∈ N =⇒ GOTO[i, A] ← gj
+                    this.insert(this.gotoTable, state.id, sym, new Goto(target.id));
+                }
+            });
+            state.closure.forEach((item) => {
+                if (item.end()) {
+                    if (item.rule.origin.name === SYMBOL_START_NAME) {
+                        // [S′ → S·] ∈ Ii =⇒ action[i, $] ← acc
+                        this.insert(this.actionTable, state.id, this.memory.symbolEnd, new Accept());
+                    } else {
+                        // [k : A → α·] ∈ Ii ∧ A ̸= S′ =⇒ ∀t ∈ T ∪ {$}. action[i, t] = rk
+                        this.memory.symbolMap.forEach((sym) => {
+                            this.insert(this.actionTable, state.id, sym, new Reduce(this.memory.ruleIndexMap.get(item.rule)!));
+                        });
+                    }
+                }
+            });
+        });
+    }
 }
 
-class ControllableLalrParser {
+
+
+interface ParserStore {
+    rules: Rule[],
+    startRule: Rule,
+    ruleIndexMap: Map<Rule, number>,
+    symbolMap: Map<string, _Symbol>,
+    symbolStart: _Symbol,
+    symbolEnd: _Symbol,
+}
+
+const SYMBOL_START_NAME = "start";
+const SYMBOL_END_NAME = "$END";
+
+class ControllableLRParser {
 
     /**
      * 本程序中token和symbol的区别：
@@ -316,77 +490,77 @@ class ControllableLalrParser {
      * token表示的是具体的内容，即输入流中的每一个此法单元。
      */
 
-    lark: Lark = null;
-    text: string = null;
-    automaton: Automaton = null;
-    tokenList: Token[] = null;
-    memory: ParserMemory = null;
-    // rules: Rule[] = null;
-    // symbolMap: Map<string, _Symbol> = new Map();
-    startRule: Rule = null;
-    currentToken: Token = null;
+    lark: Lark;
+    text: string;
+    automaton: Automaton;
+    tokenList: Token[] = [];
+    store: ParserStore;
+    currentToken?: Token = undefined;
+    parseTable: ParseTable;
 
     // lr0States: 
 
     constructor(text: string) {
         this.lark = get_parser();
         this.text = text;
-        this.memory = {
+        // 获取所有的符号(Symbol)和所有的产生式(Rule)
+        // @ts-ignore
+        this.store = {
             rules: this.lark.rules,
+            ruleIndexMap: new Map<Rule, number>(),
             symbolMap: new Map<string, _Symbol>(),
         }
-        // this.rules = this.lark.rules;
-        // this.#currentToken = null;
-        this.init();
-        this.lex();
-    }
-
-    /**
-     * 获取所有的符号(Symbol)和所有的产生式(Rule)
-     */
-    private init() {
         let saveInSymbolMap = (symbol: _Symbol): _Symbol => {
-            if (!this.memory.symbolMap.has(symbol.name)) {
-                this.memory.symbolMap.set(symbol.name, symbol);
+            if (!this.store.symbolMap.has(symbol.name)) {
+                this.store.symbolMap.set(symbol.name, symbol);
             }
-            return this.memory.symbolMap.get(symbol.name);
+            let ret = this.store.symbolMap.get(symbol.name)!;
+            return ret;
         }
-
-        this.memory.rules.forEach((rule) => {
+        this.store.rules.forEach((rule, index) => {
             rule.origin = saveInSymbolMap(rule.origin);
-            if (rule.origin.name === "start") {
-                this.startRule = rule;
+            if (rule.origin.name === SYMBOL_START_NAME) {
+                this.store.startRule = rule;
+                this.store.symbolStart = rule.origin;
             }
             rule.expansion.forEach((sym: _Symbol, i: number, arr: _Symbol[]) => {
                 arr[i] = saveInSymbolMap(sym);
             });
+            this.store.ruleIndexMap.set(rule, index);
         });
-        if (!this.startRule) {
-            throw new Error("未找到开始符号");
+        if (!this.store.startRule) {
+            throw StartSymbolNotFound();
         }
-        this.automaton = new Automaton(new LR0ItemSet([new LR0Item(this.startRule)]), this.memory);
+        this.store.symbolEnd = Terminal.deserialize({ name: "$END", filter_out: false })
+        saveInSymbolMap(this.store.symbolEnd);
+        this.automaton = new Automaton(this.store.startRule, this.store);
+        this.parseTable = new ParseTable(this.automaton, this.store);
     }
 
     lex() {
-        if (this.tokenList) {
+        if (this.tokenList.length !== 0) {
             // 报错，已经lex过了
         }
-        this.tokenList = [];
         // 官方文档写的Lark.lex方法要求lexer="basic"。但从源码中可见，它实际上会自己创建一个临时的BasicLexer
         let tokenGenerator = this.lark.lex(this.text);
         for (let iter = tokenGenerator.next(); !iter.done; iter = tokenGenerator.next()) {
             let token = iter.value;
             this.tokenList.push(token);
         }
+        // TODO this.tokenList.push(EOF);
         return this.tokenList;
     }
 
     test() {
         do {
-            this.automaton.next();
+            let r = this.automaton.nextStep();
+            console.log(r);
         } while (!this.automaton.done);
         console.log(this.automaton.toString());
+        this.parseTable = new ParseTable(this.automaton, this.store);
+        this.parseTable.compute();
+        console.log(this.parseTable.toString());
     }
 }
 
-export { ControllableLalrParser, LR0Item, LR0ItemSet }
+export { ControllableLRParser as ControllableLalrParser, LR0Item, LR0ItemSet }
