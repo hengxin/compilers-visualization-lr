@@ -1,5 +1,5 @@
 // const { get_parser, Lark, ParsingFrontend, ConfigurationError, LexerThread, LALR_Parser, ParseConf, ParserState } = require("./lib/json_parser.js");
-import { AutomatonStatePtrOutOfRange, InfoAutomatonDone, LR0ItemIndexOutOfRange, StartSymbolNotFound } from "./lalr-parser-exception.js";
+import * as E from "./lalr-parser-exception.js";
 import {
     get_parser,
     Lark,
@@ -14,7 +14,7 @@ import {
     Rule,
     Symbol as _Symbol,
     Terminal
-} from "./lib/example_parser.js";
+} from "./lib/lark_parser.js";
 
 /**
  * LR(0) 项 (Item)
@@ -27,7 +27,7 @@ class LR0Item {
 
     constructor(rule: Rule, index: number = 0) {
         if (index > rule.expansion.length) {
-            throw LR0ItemIndexOutOfRange();
+            throw new E.LR0ItemIndexOutOfRangeError();
         }
         this.rule = rule;
         this.index = index;
@@ -274,14 +274,14 @@ class Automaton {
 
     currentStateClosure(): Array<ClosureExpandList> {
         if (this.statePtr >= this.states.length) {
-            throw AutomatonStatePtrOutOfRange();
+            throw new E.AutomatonStatePtrOutOfRangeError();
         }
         return this.states[this.statePtr].computeClosure(this.memory.rules);
     }
 
     bfsByStep(): AutomatonBfsStepResult {
         if (this.statePtr >= this.states.length) {
-            throw AutomatonStatePtrOutOfRange();
+            throw new E.AutomatonStatePtrOutOfRangeError();
         }
         let { nonTerminalTransitions, terminalTransitions } = this.states[this.statePtr].computeTransitions();
         let stateNum = this.states.length;
@@ -314,7 +314,7 @@ class Automaton {
 
     nextStep(): AutomatonStepResult {
         if (this.done) {
-            throw InfoAutomatonDone();
+            throw new E.AutomatonDoneInfo();
         }
         if (this.op === 1) {
             this.op = 2;
@@ -498,8 +498,6 @@ class ControllableLRParser {
     currentToken?: Token = undefined;
     parseTable: ParseTable;
 
-    // lr0States: 
-
     constructor(text: string) {
         this.lark = get_parser();
         this.text = text;
@@ -529,9 +527,9 @@ class ControllableLRParser {
             this.store.ruleIndexMap.set(rule, index);
         });
         if (!this.store.startRule) {
-            throw StartSymbolNotFound();
+            throw new E.StartSymbolNotFoundError();
         }
-        this.store.symbolEnd = Terminal.deserialize({ name: "$END", filter_out: false })
+        this.store.symbolEnd = Terminal.deserialize({ name: SYMBOL_END_NAME, filter_out: false });
         saveInSymbolMap(this.store.symbolEnd);
         this.automaton = new Automaton(this.store.startRule, this.store);
         this.parseTable = new ParseTable(this.automaton, this.store);
@@ -539,7 +537,7 @@ class ControllableLRParser {
 
     lex() {
         if (this.tokenList.length !== 0) {
-            // 报错，已经lex过了
+            throw new E.LexicalAnalysisDoneInfo();
         }
         // 官方文档写的Lark.lex方法要求lexer="basic"。但从源码中可见，它实际上会自己创建一个临时的BasicLexer
         let tokenGenerator = this.lark.lex(this.text);
@@ -547,7 +545,8 @@ class ControllableLRParser {
             let token = iter.value;
             this.tokenList.push(token);
         }
-        // TODO this.tokenList.push(EOF);
+        // EOF Token
+        this.tokenList.push(new Token(SYMBOL_END_NAME, ""));
         return this.tokenList;
     }
 
