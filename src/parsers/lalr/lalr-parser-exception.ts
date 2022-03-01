@@ -5,9 +5,9 @@ export class ParserException extends Error {
 }
 
 // ERROR
-export class LR0ItemIndexOutOfRangeError extends ParserException {
+export class LRItemIndexOutOfRangeError extends ParserException {
     constructor() {
-        super(1001, "LR0ItemIndexOutOfRange");
+        super(1001, "LRItemIndexOutOfRange");
     }
 }
 export class AutomatonStatePtrOutOfRangeError extends ParserException {

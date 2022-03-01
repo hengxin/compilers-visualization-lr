@@ -13,24 +13,54 @@ import {
     TerminalDef,
     Rule,
     Symbol as _Symbol,
-    Terminal
+    Terminal,
+    NonTerminal
 } from "./lib/lark_parser.js";
+
+abstract class LRItem {
+    rule: Rule;
+    readonly index: number;
+
+    constructor(rule: Rule, index: number = 0) {
+        if (index > rule.expansion.length) {
+            throw new E.LRItemIndexOutOfRangeError();
+        }
+        this.rule = rule;
+        this.index = index;
+    }
+
+    abstract toString(): string;
+
+    abstract equal(other: LRItem): boolean;
+
+    end(): boolean {
+        return this.index === this.rule.expansion.length;
+    }
+
+    /**
+     * 如果this.end()为false，则返回对应的Symbol。
+     * 如果this.end()为true，则返回undefined。
+     */
+    current(): _Symbol {
+        return this.rule.expansion[this.index];
+    }
+
+    /**
+     * 返回一个index+1的新的RulePtr，并非将本RulePtr右移。
+     */
+    abstract advance(): LRItem;
+}
+
+
 
 /**
  * LR(0) 项 (Item)
  * 文法 G 的一个 LR(0) 项是 G 的某个产生式加上一个位于体部的点。
  * 例：[A → ·XYZ]
  */
-class LR0Item {
-    rule: Rule;
-    readonly index: number;
-
+class LR0Item extends LRItem {
     constructor(rule: Rule, index: number = 0) {
-        if (index > rule.expansion.length) {
-            throw new E.LR0ItemIndexOutOfRangeError();
-        }
-        this.rule = rule;
-        this.index = index;
+        super(rule, index);
     }
 
     toString(): string {
@@ -49,23 +79,35 @@ class LR0Item {
         return other.rule === this.rule && other.index === this.index;
     }
 
-    end(): boolean {
-        return this.index === this.rule.expansion.length;
-    }
-
-    /**
-     * 如果this.end()为false，则返回对应的Symbol。
-     * 如果this.end()为true，则返回undefined。
-     */
-    current(): _Symbol {
-        return this.rule.expansion[this.index];
-    }
-
     /**
      * 返回一个index+1的新的RulePtr，并非将本RulePtr右移。
      */
     advance(): LR0Item {
         return new LR0Item(this.rule, this.index + 1);
+    }
+}
+
+/**
+ * LR(1) 项 (Item)
+ * [A → α · β, a] (a ∈ T ∪ {$})，此处, a 是向前看符号, 数量为 1。
+ */
+class LR1Item extends LRItem {
+    lookahead: _Symbol;
+
+    constructor(rule: Rule, index: number = 0, lookahead: _Symbol) {
+        super(rule, index);
+        this.lookahead = lookahead;
+    }
+
+    toString(): string {
+        throw new Error("Method not implemented.");
+    }
+    equal(other: LR1Item): boolean {
+        return other.rule === this.rule && other.index === this.index &&
+            other.lookahead === this.lookahead;
+    }
+    advance(): LR1Item {
+        return new LR1Item(this.rule, this.index + 1, this.lookahead);
     }
 }
 
@@ -228,6 +270,87 @@ class LR0ItemSet {
         });
         return { nonTerminalTransitions, terminalTransitions, };
     }
+}
+
+class LR1ItemSet {
+    kernel: LR1Item[];
+    closure: LR1Item[];
+    id: number = 0;
+    private searchIndex: number = 0;
+    constructor(kernel: LR1Item[], id: number) {
+        this.kernel = kernel;
+        this.id = id;
+        this.closure = [];
+        this.kernel.forEach((item) => { this.closure.push(item); });
+    }
+    computeClosureByStep(all: Rule[]): ClosureExpandList {
+        let stepRes: ClosureExpandList = [];
+
+        let item = this.closure[this.searchIndex];
+        let rightSym: _Symbol = item.rule.expansion[item.index];
+        // ....
+
+        for (let rule of all) {
+            if (rightSym === rule.origin) {
+                let lookahead: _Symbol;
+                let nextSyms: _Symbol[] = item.rule.expansion.slice(item.index);
+                nextSyms.push(item.lookahead);
+
+            }
+        }
+
+        return stepRes;
+    }
+}
+
+/**
+ * 计算FIRST集合
+ * https://lara.epfl.ch/w/cc09:algorithm_for_first_and_follow_sets
+ */
+function first(store: ParserStore) {
+    let firstSet = new Map<_Symbol, Set<Terminal>>();
+    let nullable = new Set<NonTerminal>();
+    let finish = true;
+
+    /**
+     * 判断b是否为a的子集
+     */
+    function subset(a: Set<_Symbol>, b: Set<_Symbol>): boolean {
+        if (b.size > a.size) {
+            return false;
+        }
+        let values = b.values();
+        for (let val of values) {
+            if (!a.has(val)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    store.symbolMap.forEach((sym) => {
+        firstSet.set(sym, sym.is_term ? new Set([sym as Terminal]) : new Set());
+    });
+    do {
+        finish = true;
+        store.rules.forEach((rule) => {
+            if (rule.expansion.length === 0 ||
+                subset(nullable, new Set([...rule.expansion]))) {
+                let before = nullable.size;
+                nullable.add(rule.origin);
+                nullable.size === before ? undefined : finish = false;
+            }
+            for (let i = 0; i < rule.expansion.length; i++) {
+                if (i === 0 || subset(nullable, new Set(rule.expansion.slice(0, i)))) {
+                    let before = firstSet.get(rule.origin)!.size;
+                    firstSet.set(rule.origin,
+                        new Set([...firstSet.get(rule.origin)!, ...firstSet.get(rule.expansion[i])!]));
+                    firstSet.get(rule.origin)!.size === before ? undefined : finish = false;
+                }
+            }
+        });
+    } while (!finish);
+    return { nullable, firstSet };
 }
 
 type ClosureExpandList = LR0Item[];
@@ -481,6 +604,8 @@ interface ParserStore {
 
 const SYMBOL_START_NAME = "start";
 const SYMBOL_END_NAME = "$END";
+const SYMBOL_EPSILON_NAME = "$EPSILON"
+const SYMBOL_EPSILON = new Terminal(SYMBOL_EPSILON_NAME);
 
 class ControllableLRParser {
 
