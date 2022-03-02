@@ -216,7 +216,6 @@ class LR0ItemSet {
         }
         // 寻找产生式B -> r
         for (let rule of all) {
-            // if (rightSym.eq(rule.origin)) {
             if (rightSym === rule.origin) {
                 let newPtr = new LR0Item(rule, 0);
                 // 如果[B -> ·r]不在闭包中，则将[B -> ·r]加入到闭包
@@ -292,7 +291,6 @@ class LR1ItemSet {
 
         for (let rule of all) {
             if (rightSym === rule.origin) {
-                let lookahead: _Symbol;
                 let nextSyms: _Symbol[] = item.rule.expansion.slice(item.index);
                 nextSyms.push(item.lookahead);
 
@@ -301,56 +299,20 @@ class LR1ItemSet {
 
         return stepRes;
     }
-}
 
-/**
- * 计算FIRST集合
- * https://lara.epfl.ch/w/cc09:algorithm_for_first_and_follow_sets
- */
-function first(store: ParserStore) {
-    let firstSet = new Map<_Symbol, Set<Terminal>>();
-    let nullable = new Set<NonTerminal>();
-    let finish = true;
-
-    /**
-     * 判断b是否为a的子集
-     */
-    function subset(a: Set<_Symbol>, b: Set<_Symbol>): boolean {
-        if (b.size > a.size) {
-            return false;
-        }
-        let values = b.values();
-        for (let val of values) {
-            if (!a.has(val)) {
-                return false;
+    private first(symbolString: _Symbol[]): Terminal[] {
+        let result: Set<Terminal> = new Set();
+        for (let i = 0; i < symbolString.length; ++i) {
+            result = new Set([...result, ...PARSER_STORE.firstSet.get(symbolString[i])!]);
+            if (!symbolString[i].is_term && !PARSER_STORE.nullable.has(symbolString[i] as NonTerminal)) {
+                break;
+            }
+            if (i === symbolString.length - 1) {
+                result.add(SYMBOL_EPSILON);
             }
         }
-        return true;
+        return Array.from(result);
     }
-
-    store.symbolMap.forEach((sym) => {
-        firstSet.set(sym, sym.is_term ? new Set([sym as Terminal]) : new Set());
-    });
-    do {
-        finish = true;
-        store.rules.forEach((rule) => {
-            if (rule.expansion.length === 0 ||
-                subset(nullable, new Set([...rule.expansion]))) {
-                let before = nullable.size;
-                nullable.add(rule.origin);
-                nullable.size === before ? undefined : finish = false;
-            }
-            for (let i = 0; i < rule.expansion.length; i++) {
-                if (i === 0 || subset(nullable, new Set(rule.expansion.slice(0, i)))) {
-                    let before = firstSet.get(rule.origin)!.size;
-                    firstSet.set(rule.origin,
-                        new Set([...firstSet.get(rule.origin)!, ...firstSet.get(rule.expansion[i])!]));
-                    firstSet.get(rule.origin)!.size === before ? undefined : finish = false;
-                }
-            }
-        });
-    } while (!finish);
-    return { nullable, firstSet };
 }
 
 type ClosureExpandList = LR0Item[];
@@ -374,17 +336,14 @@ class Automaton {
      * 自动机的状态集
      */
     states: AutomatonState[] = [];
-    // paths: AutomatonStatePath[] = [];
     done: boolean = false;
 
     private statePtr: number = 0;
     private op: AutomatonOperation = 1;
-    private memory: ParserStore;
 
-    constructor(startRule: Rule, memory: ParserStore) {
+    constructor(startRule: Rule) {
         let startState = new LR0ItemSet([new LR0Item(startRule)], 0);
         this.states.push(startState);
-        this.memory = memory;
     }
 
     toString(): string {
@@ -399,7 +358,7 @@ class Automaton {
         if (this.statePtr >= this.states.length) {
             throw new E.AutomatonStatePtrOutOfRangeError();
         }
-        return this.states[this.statePtr].computeClosure(this.memory.rules);
+        return this.states[this.statePtr].computeClosure(PARSER_STORE.rules);
     }
 
     bfsByStep(): AutomatonBfsStepResult {
@@ -493,11 +452,9 @@ class ParseTable {
     gotoTable: Array<Map<_Symbol, Action[]>>;
     conflict: boolean = false;
     private automaton: Automaton;
-    private memory: ParserStore;
 
-    constructor(automaton: Automaton, memory: ParserStore) {
+    constructor(automaton: Automaton) {
         this.automaton = automaton;
-        this.memory = memory;
         this.actionTable = new Array(automaton.states.length);
         this.gotoTable = new Array(automaton.states.length);
         for (let i = 0; i < automaton.states.length; i++) {
@@ -509,14 +466,14 @@ class ParseTable {
     toString() {
         let rows: string[][] = [];
         let actionHeader: string[] = [], gotoHeader: string[] = [];
-        this.memory.symbolMap.forEach((sym, name) => {
+        PARSER_STORE.symbolMap.forEach((sym, name) => {
             sym.is_term ? actionHeader.push(name) : gotoHeader.push(name);
         });
         let header = [...actionHeader, ...gotoHeader];
         this.automaton.states.forEach((state, index) => {
             let row: string[] = [index.toString()];
             header.forEach((val) => {
-                let sym = this.memory.symbolMap.get(val)!;
+                let sym = PARSER_STORE.symbolMap.get(val)!;
                 let tmp: Action[] = sym.is_term ? this.actionTable[index].get(sym)! : this.gotoTable[index].get(sym)!;
                 row.push(tmp ? tmp.toString() : "");
             });
@@ -578,11 +535,11 @@ class ParseTable {
                 if (item.end()) {
                     if (item.rule.origin.name === SYMBOL_START_NAME) {
                         // [S′ → S·] ∈ Ii =⇒ action[i, $] ← acc
-                        this.insert(this.actionTable, state.id, this.memory.symbolEnd, new Accept());
+                        this.insert(this.actionTable, state.id, PARSER_STORE.symbolEnd, new Accept());
                     } else {
                         // [k : A → α·] ∈ Ii ∧ A ̸= S′ =⇒ ∀t ∈ T ∪ {$}. action[i, t] = rk
-                        this.memory.symbolMap.forEach((sym) => {
-                            this.insert(this.actionTable, state.id, sym, new Reduce(this.memory.ruleIndexMap.get(item.rule)!));
+                        PARSER_STORE.symbolMap.forEach((sym) => {
+                            this.insert(this.actionTable, state.id, sym, new Reduce(PARSER_STORE.ruleIndexMap.get(item.rule)!));
                         });
                     }
                 }
@@ -591,21 +548,41 @@ class ParseTable {
     }
 }
 
-
-
-interface ParserStore {
-    rules: Rule[],
-    startRule: Rule,
-    ruleIndexMap: Map<Rule, number>,
-    symbolMap: Map<string, _Symbol>,
-    symbolStart: _Symbol,
-    symbolEnd: _Symbol,
+const PARSER_STORE = {
+    rules: [] as Rule[],
+    startRule: undefined as unknown as Rule,
+    ruleIndexMap: new Map<Rule, number>(),
+    symbolMap: new Map<string, _Symbol>(),
+    symbolStart: undefined as unknown as _Symbol,
+    symbolEnd: undefined as unknown as _Symbol,
+    /**
+     * 注意：这里firstSet每个符号的FIRST集合中都没有包括ε。
+     * 若想得知某个符号的FIRST集合是否包括ε，可通过nullable.has(symbol)的真值判断。
+     */
+    firstSet: new Map<_Symbol, Set<Terminal>>(),
+    nullable: new Set<NonTerminal>(),
 }
 
 const SYMBOL_START_NAME = "start";
 const SYMBOL_END_NAME = "$END";
 const SYMBOL_EPSILON_NAME = "$EPSILON"
 const SYMBOL_EPSILON = new Terminal(SYMBOL_EPSILON_NAME);
+
+/**
+ * 判断b是否为a的子集
+ */
+function subset(a: Set<any>, b: Set<any>): boolean {
+    if (b.size > a.size) {
+        return false;
+    }
+    let values = b.values();
+    for (let val of values) {
+        if (!a.has(val)) {
+            return false;
+        }
+    }
+    return true;
+}
 
 class ControllableLRParser {
 
@@ -619,7 +596,7 @@ class ControllableLRParser {
     text: string;
     automaton: Automaton;
     tokenList: Token[] = [];
-    store: ParserStore;
+    // store: ParserStore;
     currentToken?: Token = undefined;
     parseTable: ParseTable;
 
@@ -627,37 +604,65 @@ class ControllableLRParser {
         this.lark = get_parser();
         this.text = text;
         // 获取所有的符号(Symbol)和所有的产生式(Rule)
-        // @ts-ignore
-        this.store = {
-            rules: this.lark.rules,
-            ruleIndexMap: new Map<Rule, number>(),
-            symbolMap: new Map<string, _Symbol>(),
-        }
+        PARSER_STORE.rules = this.lark.rules;
         let saveInSymbolMap = (symbol: _Symbol): _Symbol => {
-            if (!this.store.symbolMap.has(symbol.name)) {
-                this.store.symbolMap.set(symbol.name, symbol);
+            if (!PARSER_STORE.symbolMap.has(symbol.name)) {
+                PARSER_STORE.symbolMap.set(symbol.name, symbol);
             }
-            let ret = this.store.symbolMap.get(symbol.name)!;
+            let ret = PARSER_STORE.symbolMap.get(symbol.name)!;
             return ret;
         }
-        this.store.rules.forEach((rule, index) => {
+        PARSER_STORE.rules.forEach((rule, index) => {
             rule.origin = saveInSymbolMap(rule.origin);
             if (rule.origin.name === SYMBOL_START_NAME) {
-                this.store.startRule = rule;
-                this.store.symbolStart = rule.origin;
+                PARSER_STORE.startRule = rule;
+                PARSER_STORE.symbolStart = rule.origin;
             }
             rule.expansion.forEach((sym: _Symbol, i: number, arr: _Symbol[]) => {
                 arr[i] = saveInSymbolMap(sym);
             });
-            this.store.ruleIndexMap.set(rule, index);
+            PARSER_STORE.ruleIndexMap.set(rule, index);
         });
-        if (!this.store.startRule) {
+        if (!PARSER_STORE.startRule) {
             throw new E.StartSymbolNotFoundError();
         }
-        this.store.symbolEnd = Terminal.deserialize({ name: SYMBOL_END_NAME, filter_out: false });
-        saveInSymbolMap(this.store.symbolEnd);
-        this.automaton = new Automaton(this.store.startRule, this.store);
-        this.parseTable = new ParseTable(this.automaton, this.store);
+        PARSER_STORE.symbolEnd = Terminal.deserialize({ name: SYMBOL_END_NAME, filter_out: false });
+        saveInSymbolMap(PARSER_STORE.symbolEnd);
+        this.automaton = new Automaton(PARSER_STORE.startRule);
+        this.parseTable = new ParseTable(this.automaton);
+
+        this.computeFirstSet();
+    }
+
+    /**
+     * 计算FIRST集合。
+     * 算法参考链接：https://lara.epfl.ch/w/cc09:algorithm_for_first_and_follow_sets
+     */
+    private computeFirstSet() {
+        let finish = true;
+
+        PARSER_STORE.symbolMap.forEach((sym) => {
+            PARSER_STORE.firstSet.set(sym, sym.is_term ? new Set([sym as Terminal]) : new Set());
+        });
+        do {
+            finish = true;
+            PARSER_STORE.rules.forEach((rule) => {
+                if (rule.expansion.length === 0 ||
+                    subset(PARSER_STORE.nullable, new Set([...rule.expansion]))) {
+                    let before = PARSER_STORE.nullable.size;
+                    PARSER_STORE.nullable.add(rule.origin);
+                    PARSER_STORE.nullable.size === before ? undefined : finish = false;
+                }
+                for (let i = 0; i < rule.expansion.length; i++) {
+                    if (i === 0 || subset(PARSER_STORE.nullable, new Set(rule.expansion.slice(0, i)))) {
+                        let before = PARSER_STORE.firstSet.get(rule.origin)!.size;
+                        PARSER_STORE.firstSet.set(rule.origin,
+                            new Set([...PARSER_STORE.firstSet.get(rule.origin)!, ...PARSER_STORE.firstSet.get(rule.expansion[i])!]));
+                        PARSER_STORE.firstSet.get(rule.origin)!.size === before ? undefined : finish = false;
+                    }
+                }
+            });
+        } while (!finish);
     }
 
     lex() {
@@ -681,7 +686,7 @@ class ControllableLRParser {
             console.log(r);
         } while (!this.automaton.done);
         console.log(this.automaton.toString());
-        this.parseTable = new ParseTable(this.automaton, this.store);
+        this.parseTable = new ParseTable(this.automaton);
         this.parseTable.compute();
         console.log(this.parseTable.toString());
     }
