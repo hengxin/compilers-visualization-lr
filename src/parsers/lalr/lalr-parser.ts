@@ -15,7 +15,7 @@ import {
     Symbol as _Symbol,
     Terminal,
     NonTerminal
-} from "./lib/very_simple.js";
+} from "./lib/new_example.js";
 
 abstract class LRItem {
     rule: Rule;
@@ -75,7 +75,7 @@ class LR0Item extends LRItem {
 
     override equal(other: LR0Item): boolean {
         if (!(other instanceof LR0Item)) {
-            // throw
+            throw new E.TypeNotMatchError()
         }
         return other.rule === this.rule && other.index === this.index;
     }
@@ -125,7 +125,7 @@ class LR1Item extends LRItem {
 
     override equal(other: LR1Item): boolean {
         if (!(other instanceof LR1Item)) {
-            // throw
+            throw new E.TypeNotMatchError();
         }
         if (other.lookahead.length !== this.lookahead.length) {
             return false;
@@ -145,7 +145,7 @@ class LR1Item extends LRItem {
      */
     equalLR0(other: LR1Item): boolean {
         if (!(other instanceof LR1Item)) {
-            // throw
+            throw new E.TypeNotMatchError();
         }
         return other.rule === this.rule && other.index === this.index;
     }
@@ -290,7 +290,7 @@ class LR0ItemSet extends LRItemSet {
     override computeClosureByStep(all: Rule[]): ClosureExpandList {
         let stepRes: ClosureExpandList = [];
         if (this.done) {
-            // throw info
+            throw new E.ItemSetClosureDoneInfo();
         }
         // 遍历闭包中的每一项[A -> a·Bb]
         let item = this.closure[this.searchIndex];
@@ -340,7 +340,7 @@ class LR1ItemSet extends LRItemSet {
     override computeClosureByStep(all: Rule[]): ClosureExpandList {
         let stepRes: ClosureExpandList = [];
         if (this.done) {
-            // throw info
+            throw new E.ItemSetClosureDoneInfo();
         }
         // 遍历闭包中的每一项[A → α · Bβ, a] ∈ I (a ∈ T ∪ {$})
         let item = this.closure[this.searchIndex] as LR1Item;
@@ -468,7 +468,7 @@ class Automaton {
         // let startState = new LR0ItemSet([new LR0Item(startRule)], 0);
         this.type = type;
         let startState = this.type === "LR0" ? new LR0ItemSet([new LR0Item(startRule, 0)], 0) :
-            new LR1ItemSet([new LR1Item(startRule, 0, [PARSER_STORE.symbolEnd])], 0);
+            new LR1ItemSet([new LR1Item(startRule, 0, [SYMBOL_END])], 0);
         this.states.push(startState);
     }
 
@@ -548,17 +548,15 @@ type ActionAbbr = "s" | "r" | "g" | "acc";
 class Action {
     name: ActionName;
     abbr: ActionAbbr;
-    arg?: number;
-    protected constructor(name: ActionName, abbr: ActionAbbr, arg?: number) {
+    arg: number;
+    protected constructor(name: ActionName, abbr: ActionAbbr, arg: number) {
         this.name = name;
         this.abbr = abbr;
-        if (arg !== undefined) {
-            this.arg = arg;
-        }
+        this.arg = arg;
     }
     toString() {
         return this.abbr +
-            (this.arg === undefined ? "" : this.arg.toString());
+            (this.name === "Accept" ? "" : this.arg.toString());
     }
 }
 class Shift extends Action {
@@ -578,7 +576,7 @@ class Goto extends Action {
 }
 class Accept extends Action {
     constructor() {
-        super("Accept", "acc");
+        super("Accept", "acc", -1);
     }
 }
 type ParseTableInner = Array<Map<_Symbol, Action[]>>;
@@ -671,7 +669,7 @@ class ParseTable {
                     if (item.rule.origin.name === SYMBOL_START_NAME) {
                         // LR0: [S′ → S·] ∈ Ii =⇒ action[i, $] ← acc
                         // LR1: [S′ → S·, $] ∈ Ii =⇒ action[i, $] ← acc
-                        this.insert(this.actionTable, state.id, PARSER_STORE.symbolEnd, new Accept());
+                        this.insert(this.actionTable, state.id, SYMBOL_END, new Accept());
                     } else {
                         if (this.automaton.type === "LR0") {
                             // [k : A → α·] ∈ Ii ∧ A ̸= S′ =⇒ ∀t ∈ T ∪ {$}. action[i, t] = rk
@@ -691,6 +689,12 @@ class ParseTable {
             });
         });
     }
+
+    get(tableName: "ACTION" | "GOTO", stateId: number, symbol: _Symbol): Action | undefined {
+        let table = tableName === "ACTION" ? this.actionTable : this.gotoTable;
+        let actions = table[stateId].get(symbol);
+        return actions === undefined ? actions : actions[0];
+    }
 }
 
 const PARSER_STORE = {
@@ -698,18 +702,24 @@ const PARSER_STORE = {
     startRule: undefined as unknown as Rule,
     ruleIndexMap: new Map<Rule, number>(),
     symbolMap: new Map<string, _Symbol>(),
-    symbolStart: undefined as unknown as _Symbol,
-    symbolEnd: undefined as unknown as _Symbol,
+    // symbolStart: undefined as unknown as _Symbol,
     /**
      * 注意：这里firstSet每个符号的FIRST集合中都没有包括ε。
      * 若想得知某个符号的FIRST集合是否包括ε，可通过nullable.has(symbol)的真值判断。
      */
     firstSet: new Map<_Symbol, Set<Terminal>>(),
     nullable: new Set<NonTerminal>(),
+
+    // stateStack: new Stack<number>(),
+    // valueStack: new Stack<_Symbol>(),
+    stateStack: [] as number[],
+    valueStack: [] as _Symbol[],
 }
 
 const SYMBOL_START_NAME = "start";
+const SYMBOL_START = Terminal.deserialize({ name: SYMBOL_START_NAME, filter_out: false });
 const SYMBOL_END_NAME = "$END";
+const SYMBOL_END = Terminal.deserialize({ name: SYMBOL_END_NAME, filter_out: false });
 const SYMBOL_EPSILON_NAME = "$EPSILON"
 const SYMBOL_EPSILON = Terminal.deserialize({ name: SYMBOL_EPSILON_NAME, filter_out: false });
 
@@ -742,9 +752,10 @@ class ControllableLRParser {
     readonly algo: Algorithm;
     automaton: Automaton;
     tokenList: Token[] = [];
-    // store: ParserStore;
     currentToken?: Token = undefined;
     parseTable: ParseTable;
+    private tokenPtr: number = -1;
+    done: boolean = false;
 
     constructor(text: string, algo: Algorithm) {
         this.lark = get_parser();
@@ -752,19 +763,20 @@ class ControllableLRParser {
         this.algo = algo;
         // 获取所有的符号(Symbol)和所有的产生式(Rule)
         PARSER_STORE.rules = this.lark.rules;
-        let saveInSymbolMap = (symbol: _Symbol): _Symbol => {
+        const saveInSymbolMap = (symbol: _Symbol): _Symbol => {
             if (!PARSER_STORE.symbolMap.has(symbol.name)) {
                 PARSER_STORE.symbolMap.set(symbol.name, symbol);
             }
             let ret = PARSER_STORE.symbolMap.get(symbol.name)!;
             return ret;
         }
+        saveInSymbolMap(SYMBOL_START);
+        saveInSymbolMap(SYMBOL_END);
         PARSER_STORE.rules.forEach((rule, index) => {
-            rule.origin = saveInSymbolMap(rule.origin);
             if (rule.origin.name === SYMBOL_START_NAME) {
                 PARSER_STORE.startRule = rule;
-                PARSER_STORE.symbolStart = rule.origin;
             }
+            rule.origin = saveInSymbolMap(rule.origin);
             rule.expansion.forEach((sym: _Symbol, i: number, arr: _Symbol[]) => {
                 arr[i] = saveInSymbolMap(sym);
             });
@@ -773,8 +785,6 @@ class ControllableLRParser {
         if (!PARSER_STORE.startRule) {
             throw new E.StartSymbolNotFoundError();
         }
-        PARSER_STORE.symbolEnd = Terminal.deserialize({ name: SYMBOL_END_NAME, filter_out: false });
-        saveInSymbolMap(PARSER_STORE.symbolEnd);
         this.automaton = new Automaton(PARSER_STORE.startRule, this.algo);
         this.parseTable = new ParseTable(this.automaton);
         if (this.algo !== "LR0") {
@@ -826,6 +836,52 @@ class ControllableLRParser {
         // EOF Token
         this.tokenList.push(new Token(SYMBOL_END_NAME, ""));
         return this.tokenList;
+    }
+
+    initParse() {
+        PARSER_STORE.stateStack.push(0);
+        this.nextToken();
+    }
+
+    parseByStep() {
+        let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
+        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken?.type)!;
+        let action = this.parseTable.get("ACTION", stateId, symOfCurrToken);
+        if (action === undefined) {
+            throw new E.ActionNotExistError();
+        } else if (action.name === "Shift") {
+            PARSER_STORE.stateStack.push(action.arg);
+            PARSER_STORE.valueStack.push(symOfCurrToken);
+            this.nextToken();
+        } else if (action.name === "Reduce") {
+            let rule = PARSER_STORE.rules[action.arg];
+            let size = rule.expansion.length;
+            // 这两个值可供以后用
+            let statePops = PARSER_STORE.stateStack.splice(-size);
+            let valuePops = PARSER_STORE.valueStack.splice(-size);
+            let top = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
+            let goto = this.parseTable.get("GOTO", top, rule.origin);
+            if (goto === undefined) {
+                throw new E.ActionNotExistError();
+            }
+            PARSER_STORE.stateStack.push(goto.arg);
+            PARSER_STORE.valueStack.push(rule.origin);
+        } else {
+            this.done = true;
+        }
+        return {
+            stateStack: PARSER_STORE.stateStack,
+            valueStack: PARSER_STORE.valueStack
+        };
+    }
+
+    private nextToken(): Token {
+        this.tokenPtr++;
+        if (this.tokenPtr >= this.tokenList.length) {
+            throw new E.TokenPtrOutOfRangeError();
+        }
+        this.currentToken = this.tokenList[this.tokenPtr];
+        return this.currentToken;
     }
 
     test() {
