@@ -1,5 +1,5 @@
-// const { get_parser, Lark, ParsingFrontend, ConfigurationError, LexerThread, LALR_Parser, ParseConf, ParserState } = require("./lib/json_parser.js");
-import * as E from "./lalr-parser-exception.js";
+import * as E from "./parser-exception.js";
+import { Tree } from "./tree.js";
 import {
     get_parser,
     Lark,
@@ -709,11 +709,8 @@ const PARSER_STORE = {
      */
     firstSet: new Map<_Symbol, Set<Terminal>>(),
     nullable: new Set<NonTerminal>(),
-
-    // stateStack: new Stack<number>(),
-    // valueStack: new Stack<_Symbol>(),
     stateStack: [] as number[],
-    valueStack: [] as _Symbol[],
+    valueStack: [] as Tree[],
 }
 
 const SYMBOL_START_NAME = "start";
@@ -752,7 +749,7 @@ class ControllableLRParser {
     readonly algo: Algorithm;
     automaton: Automaton;
     tokenList: Token[] = [];
-    currentToken?: Token = undefined;
+    currentToken: Token;
     parseTable: ParseTable;
     private tokenPtr: number = -1;
     done: boolean = false;
@@ -790,6 +787,10 @@ class ControllableLRParser {
         if (this.algo !== "LR0") {
             this.computeFirstSet();
         }
+
+        this.lex();
+        PARSER_STORE.stateStack.push(0);
+        this.currentToken = this.nextToken();
     }
 
     /**
@@ -839,19 +840,19 @@ class ControllableLRParser {
     }
 
     initParse() {
-        PARSER_STORE.stateStack.push(0);
-        this.nextToken();
+        // PARSER_STORE.stateStack.push(0);
+        // this.nextToken();
     }
 
     parseByStep() {
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
-        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken?.type)!;
+        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken.type)!;
         let action = this.parseTable.get("ACTION", stateId, symOfCurrToken);
         if (action === undefined) {
             throw new E.ActionNotExistError();
         } else if (action.name === "Shift") {
             PARSER_STORE.stateStack.push(action.arg);
-            PARSER_STORE.valueStack.push(symOfCurrToken);
+            PARSER_STORE.valueStack.push(new Tree(symOfCurrToken, this.currentToken.value));
             this.nextToken();
         } else if (action.name === "Reduce") {
             let rule = PARSER_STORE.rules[action.arg];
@@ -865,7 +866,7 @@ class ControllableLRParser {
                 throw new E.ActionNotExistError();
             }
             PARSER_STORE.stateStack.push(goto.arg);
-            PARSER_STORE.valueStack.push(rule.origin);
+            PARSER_STORE.valueStack.push(new Tree(rule.origin, valuePops));
         } else {
             this.done = true;
         }
