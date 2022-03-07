@@ -1,20 +1,15 @@
-interface Deserialize {
-    // _type: string;
-    // deserialize: (data: Map<string, any>) => void;
-}
-type SerializationData = Map<string, any>;
-class _Symbol implements Deserialize {
+class _Symbol{
     name: string;
     isTerm: boolean = false;
     protected constructor(name: string) {
         this.name = name;
     }
-    static deserialize(data: SerializationData): _Symbol {
-        let type = data.get("__type__") as string;
+    static deserialize(data: any): _Symbol {
+        let type = data.__type__ as string;
         if (type === Terminal._type) {
-            return new Terminal(data.get("name"));
+            return new Terminal(data.name);
         } else if (type === NonTerminal._type) {
-            return new NonTerminal(data.get("name"));
+            return new NonTerminal(data.name);
         } else {
             // NotImplemented
             return new Terminal("?");
@@ -48,7 +43,7 @@ class RuleOptions {
     priority?: any;
 }
 
-class Rule {
+class Rule{
     static _type: string = "Rule";
     origin: _Symbol;
     expansion: _Symbol[];
@@ -56,7 +51,7 @@ class Rule {
     alias?: any;
     options?: RuleOptions;
 
-    constructor(origin: _Symbol, expansion: _Symbol[], order:number = 0, alias?:any, options?:RuleOptions) {
+    constructor(origin: _Symbol, expansion: _Symbol[], order: number = 0, alias?: any, options?: RuleOptions) {
         this.origin = origin;
         this.expansion = expansion;
         this.order = order
@@ -64,16 +59,54 @@ class Rule {
         this.options = options;
     }
 
-    static deserialize(data: SerializationData) {
-        let type = data.get("__type__") as string;
+    static deserialize(data: any) {
+        let type = data.__type__ as string;
         if (type !== Rule._type) {
             // error
         }
         return new Rule(
-            _Symbol.deserialize(data.get("origin") as SerializationData),
-            (data.get("expansion") as SerializationData[]).map(m => _Symbol.deserialize(m)),
-            data.get("order") as number,
+            _Symbol.deserialize(data.origin),
+            (data.expansion as any[]).map(m => _Symbol.deserialize(m)),
+            data.order as number,
             // alias & options
         );
     }
 }
+
+class Token{
+    static _type: string = "Token";
+    type: string;
+    value: string;
+    startPos: number;
+    line: number;
+    column: number;
+    endLine: number;
+    endColumn: number;
+    endPos: number;
+
+    constructor(type: string, value: string, start_pos: number, line: number,
+        column: number, endLine: number, endColumn: number, endPos: number) {
+        this.type = type;
+        this.value = value;
+        this.startPos = start_pos;
+        this.line = line;
+        this.column = column;
+        this.endLine = endLine;
+        this.endColumn = endColumn;
+        this.endPos = endPos;
+    }
+
+    static deserialize(data: any) {
+        let type = data.__type__ as string;
+        if (type !== Token._type) {
+            // error
+        }
+        return new Token(
+            data.type as string, data.value as string,
+            data.start_pos as number, data.line as number, data.column as number,
+            data.end_line as number, data.end_column as number, data.end_pos as number
+        );
+    }
+}
+
+export { _Symbol, Terminal, NonTerminal, Rule, Token }
