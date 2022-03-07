@@ -18,7 +18,20 @@ class Tree {
     }
 
     toString() {
-        
+        return this.pretty(0);
+    }
+
+    private pretty(depth: number) {
+        let prefix = " ".repeat(depth * 2);
+        let s: string = prefix + this.symbol.name;
+        if (this.symbol.is_term) {
+            s += "(" + this.value + ")"
+        }
+        s += "\n";
+        this.children.forEach((child) => {
+            s += child.pretty(depth + 1);
+        });
+        return s;
     }
 }
 

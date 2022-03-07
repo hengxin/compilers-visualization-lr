@@ -10,11 +10,14 @@ function start() {
         // }
         parser.test();
         parser.initParse();
+        let step;
         while (!parser.done) {
-            let step = parser.parseByStep();
+            step = parser.parseByStep();
             console.log(step);
         }
-
+        // @ts-ignore
+        let s = step.valueStack[0].toString();
+        console.log(s);
     } catch (e) {
         if (e instanceof ParserException) {
             console.log(e.message);
