@@ -15,7 +15,7 @@
 <script lang="ts">
 import { ref, defineComponent } from "vue";
 import { useI18n } from "vue-i18n";
-import { Rule, Token } from "@/parsers/lr/grammar";
+import { Rule, Token, ControllableLRParser } from "@/parsers/lr";
 import loadLark from "@/utils/lark-loader";
 import { Pyodide } from "@/utils/pyodide";
 
@@ -58,6 +58,7 @@ DIGIT: "0".."9"
         const text = ref("id * id");
         const ruleList = ref<Rule[]>([]);
         const tokenList = ref<Token[]>([]);
+        let parser: ControllableLRParser;
         function initParser() {
             ruleList.value.splice(0, ruleList.value.length);
             tokenList.value.splice(0, tokenList.value.length);
@@ -94,6 +95,8 @@ DIGIT: "0".."9"
                 "del tokenGenerator\n" +
                 "del tokenList";
             pyodide.runPython(code);
+
+            parser = new ControllableLRParser("LR0", ruleList.value, tokenList.value);
         }
 
         return {

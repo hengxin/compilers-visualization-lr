@@ -1,4 +1,4 @@
-import { Token, Symbol as _Symbol } from "./lib/new_example.js"
+import { Token, _Symbol } from "./grammar"
 class Tree {
     symbol: _Symbol;
     value: string;
@@ -24,7 +24,7 @@ class Tree {
     private pretty(depth: number) {
         let prefix = " ".repeat(depth * 2);
         let s: string = prefix + this.symbol.name;
-        if (this.symbol.is_term) {
+        if (this.symbol.isTerm) {
             s += "(" + this.value + ")"
         }
         s += "\n";

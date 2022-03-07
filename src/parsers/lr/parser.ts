@@ -1,21 +1,12 @@
 import * as E from "./parser-exception.js";
 import { Tree } from "./tree.js";
 import {
-    get_parser,
-    Lark,
-    ParsingFrontend,
-    ConfigurationError,
-    LexerThread,
-    LALR_Parser,
-    ParseConf, ParserState,
-    _Parser,
     Token,
-    TerminalDef,
     Rule,
-    Symbol as _Symbol,
+    _Symbol,
     Terminal,
     NonTerminal
-} from "./lib/new_example.js";
+} from "./grammar";
 
 abstract class LRItem {
     rule: Rule;
@@ -232,10 +223,10 @@ abstract class LRItemSet {
         return false;
     }
 
-    abstract computeClosureByStep(all: Rule[]): ClosureExpandList;
+    abstract computeClosureByStep(all: Rule[]): Array<LRItem>;
 
-    computeClosure(all: Rule[]): ClosureExpandList[] {
-        let steps: ClosureExpandList[] = [];
+    computeClosure(all: Rule[]): Array<Array<LRItem>> {
+        let steps: Array<Array<LRItem>> = [];
         while (!this.done) {
             let res = this.computeClosureByStep(all);
             steps.push(res);
@@ -253,7 +244,7 @@ abstract class LRItemSet {
         this.closure.forEach((item) => {
             if (!item.end()) {
                 let sym = item.current();
-                if (sym.is_term) {
+                if (sym.isTerm) {
                     if (!terminalTransitions.has(sym)) {
                         terminalTransitions.set(sym, []);
                     }
@@ -287,8 +278,8 @@ class LR0ItemSet extends LRItemSet {
         return s;
     }
 
-    override computeClosureByStep(all: Rule[]): ClosureExpandList {
-        let stepRes: ClosureExpandList = [];
+    override computeClosureByStep(all: Rule[]): Array<LRItem> {
+        let stepRes: Array<LRItem> = [];
         if (this.done) {
             throw new E.ItemSetClosureDoneInfo();
         }
@@ -337,8 +328,8 @@ class LR1ItemSet extends LRItemSet {
         return s;
     }
 
-    override computeClosureByStep(all: Rule[]): ClosureExpandList {
-        let stepRes: ClosureExpandList = [];
+    override computeClosureByStep(all: Rule[]): Array<LRItem> {
+        let stepRes: Array<LRItem> = [];
         if (this.done) {
             throw new E.ItemSetClosureDoneInfo();
         }
@@ -381,7 +372,7 @@ class LR1ItemSet extends LRItemSet {
         let result: Set<Terminal> = new Set();
         for (let i = 0; i < symbolString.length; ++i) {
             result = new Set([...result, ...PARSER_STORE.firstSet.get(symbolString[i])!]);
-            if (symbolString[i].is_term || !PARSER_STORE.nullable.has(symbolString[i] as NonTerminal)) {
+            if (symbolString[i].isTerm || !PARSER_STORE.nullable.has(symbolString[i] as NonTerminal)) {
                 break;
             }
             if (i === symbolString.length - 1) {
@@ -435,12 +426,13 @@ class LR1ItemSet extends LRItemSet {
     }
 }
 
-type ClosureExpandList = LRItem[];
-
 type AutomatonState = LRItemSet;
 /**
- * 1: 应该计算ptr指向的状态的CLOSURE
- * 2：应该计算ptr指向的状态可转移的状态
+ * 1: 应该计算ptr指向的状态的CLOSURE。
+ * 
+ * 2：应该计算ptr指向的状态可转移的状态。
+ * 
+ * 3: 针对LR(1)，将相同LR(0)核心的LR(1)项合并。
  */
 type AutomatonOperation = 1 | 2 | 3;
 interface AutomatonBfsStepResult {
@@ -449,7 +441,7 @@ interface AutomatonBfsStepResult {
 }
 interface AutomatonStepResult {
     op: AutomatonOperation,
-    value?: Array<ClosureExpandList> | AutomatonBfsStepResult
+    value?: Array<Array<LRItem>> | AutomatonBfsStepResult
 }
 type Algorithm = "LR0" | "LR1" | "LALR1";
 type AutomatonType = "LR0" | "LR1" | "LALR1";
@@ -480,7 +472,7 @@ class Automaton {
         return s;
     }
 
-    currentStateClosure(): Array<ClosureExpandList> {
+    currentStateClosure(): Array<Array<LRItem>> {
         if (this.statePtr >= this.states.length) {
             throw new E.AutomatonStatePtrOutOfRangeError();
         }
@@ -600,14 +592,14 @@ class ParseTable {
         let rows: string[][] = [];
         let actionHeader: string[] = [], gotoHeader: string[] = [];
         PARSER_STORE.symbolMap.forEach((sym, name) => {
-            sym.is_term ? actionHeader.push(name) : gotoHeader.push(name);
+            sym.isTerm ? actionHeader.push(name) : gotoHeader.push(name);
         });
         let header = [...actionHeader, ...gotoHeader];
         this.automaton.states.forEach((state, index) => {
             let row: string[] = [index.toString()];
             header.forEach((val) => {
                 let sym = PARSER_STORE.symbolMap.get(val)!;
-                let tmp: Action[] = sym.is_term ? this.actionTable[index].get(sym)! : this.gotoTable[index].get(sym)!;
+                let tmp: Action[] = sym.isTerm ? this.actionTable[index].get(sym)! : this.gotoTable[index].get(sym)!;
                 row.push(tmp ? tmp.toString() : "");
             });
             rows.push(row);
@@ -656,7 +648,7 @@ class ParseTable {
     compute() {
         this.automaton.states.forEach((state) => {
             state.transitions.forEach((target, sym) => {
-                if (sym.is_term) {
+                if (sym.isTerm) {
                     // GOTO(Ii, a) = Ij ∧ a ∈ T =⇒ ACTION[i, a] ← sj
                     this.insert(this.actionTable, state.id, sym, new Shift(target.id));
                 } else {
@@ -701,8 +693,14 @@ const PARSER_STORE = {
     rules: [] as Rule[],
     startRule: undefined as unknown as Rule,
     ruleIndexMap: new Map<Rule, number>(),
+    /**
+     * 本程序中token和symbol的区别：
+     * 
+     * symbol表示的是抽象的符号，即文法中的终结符与非终结符。
+     * token表示的是具体的内容，即输入流中的每一个词法单元。
+     */
     symbolMap: new Map<string, _Symbol>(),
-    // symbolStart: undefined as unknown as _Symbol,
+    tokens: [] as Token[],
     /**
      * 注意：这里firstSet每个符号的FIRST集合中都没有包括ε。
      * 若想得知某个符号的FIRST集合是否包括ε，可通过nullable.has(symbol)的真值判断。
@@ -714,12 +712,11 @@ const PARSER_STORE = {
 }
 
 const SYMBOL_START_NAME = "start";
-const SYMBOL_START = Terminal.deserialize({ name: SYMBOL_START_NAME, filter_out: false });
+const SYMBOL_START = new Terminal(SYMBOL_START_NAME);
 const SYMBOL_END_NAME = "$END";
-const SYMBOL_END = Terminal.deserialize({ name: SYMBOL_END_NAME, filter_out: false });
+const SYMBOL_END = new Terminal(SYMBOL_END_NAME);
 const SYMBOL_EPSILON_NAME = "$EPSILON"
-const SYMBOL_EPSILON = Terminal.deserialize({ name: SYMBOL_EPSILON_NAME, filter_out: false });
-
+const SYMBOL_EPSILON = new Terminal(SYMBOL_EPSILON_NAME);
 /**
  * 判断b是否为a的子集
  */
@@ -737,29 +734,18 @@ function subset(a: Set<any>, b: Set<any>): boolean {
 }
 
 class ControllableLRParser {
-
-    /**
-     * 本程序中token和symbol的区别：
-     * symbol表示的是抽象的符号，即文法中的终结符与非终结符。
-     * token表示的是具体的内容，即输入流中的每一个此法单元。
-     */
-
-    lark: Lark;
-    text: string;
     readonly algo: Algorithm;
     automaton: Automaton;
-    tokenList: Token[] = [];
     currentToken: Token;
     parseTable: ParseTable;
     private tokenPtr: number = -1;
     done: boolean = false;
 
-    constructor(text: string, algo: Algorithm) {
-        this.lark = get_parser();
-        this.text = text;
+    constructor(algo: Algorithm, rules: Array<Rule>, tokens: Array<Token>) {
         this.algo = algo;
-        // 获取所有的符号(Symbol)和所有的产生式(Rule)
-        PARSER_STORE.rules = this.lark.rules;
+        PARSER_STORE.rules = rules;
+        PARSER_STORE.tokens = tokens;
+
         const saveInSymbolMap = (symbol: _Symbol): _Symbol => {
             if (!PARSER_STORE.symbolMap.has(symbol.name)) {
                 PARSER_STORE.symbolMap.set(symbol.name, symbol);
@@ -769,6 +755,7 @@ class ControllableLRParser {
         }
         saveInSymbolMap(SYMBOL_START);
         saveInSymbolMap(SYMBOL_END);
+        // 从产生式中获取所有的符号(Symbol)
         PARSER_STORE.rules.forEach((rule, index) => {
             if (rule.origin.name === SYMBOL_START_NAME) {
                 PARSER_STORE.startRule = rule;
@@ -788,7 +775,6 @@ class ControllableLRParser {
             this.computeFirstSet();
         }
 
-        this.lex();
         PARSER_STORE.stateStack.push(0);
         this.currentToken = this.nextToken();
     }
@@ -801,7 +787,7 @@ class ControllableLRParser {
         let finish = true;
 
         PARSER_STORE.symbolMap.forEach((sym) => {
-            PARSER_STORE.firstSet.set(sym, sym.is_term ? new Set([sym as Terminal]) : new Set());
+            PARSER_STORE.firstSet.set(sym, sym.isTerm ? new Set([sym as Terminal]) : new Set());
         });
         do {
             finish = true;
@@ -822,26 +808,6 @@ class ControllableLRParser {
                 }
             });
         } while (!finish);
-    }
-
-    lex() {
-        if (this.tokenList.length !== 0) {
-            throw new E.LexicalAnalysisDoneInfo();
-        }
-        // 官方文档写的Lark.lex方法要求lexer="basic"。但从源码中可见，它实际上会自己创建一个临时的BasicLexer
-        let tokenGenerator = this.lark.lex(this.text);
-        for (let iter = tokenGenerator.next(); !iter.done; iter = tokenGenerator.next()) {
-            let token = iter.value;
-            this.tokenList.push(token);
-        }
-        // EOF Token
-        this.tokenList.push(new Token(SYMBOL_END_NAME, ""));
-        return this.tokenList;
-    }
-
-    initParse() {
-        // PARSER_STORE.stateStack.push(0);
-        // this.nextToken();
     }
 
     parseByStep() {
@@ -878,10 +844,10 @@ class ControllableLRParser {
 
     private nextToken(): Token {
         this.tokenPtr++;
-        if (this.tokenPtr >= this.tokenList.length) {
+        if (this.tokenPtr >= PARSER_STORE.tokens.length) {
             throw new E.TokenPtrOutOfRangeError();
         }
-        this.currentToken = this.tokenList[this.tokenPtr];
+        this.currentToken = PARSER_STORE.tokens[this.tokenPtr];
         return this.currentToken;
     }
 
@@ -897,4 +863,4 @@ class ControllableLRParser {
     }
 }
 
-export { ControllableLRParser as ControllableLalrParser, LR0Item, LR0ItemSet }
+export { ControllableLRParser, LR0Item, LR0ItemSet }
