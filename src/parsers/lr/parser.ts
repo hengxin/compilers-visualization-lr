@@ -100,6 +100,9 @@ class LR1Item extends LRItem {
             this.lookahead.push(lookahead);
 
         } else {
+            if (lookahead.length < 1) {
+                // throw error
+            }
             this.lookahead = lookahead;
         }
     }
@@ -123,6 +126,9 @@ class LR1Item extends LRItem {
         return s + " ]";
     }
 
+    /**
+     * 比较两个LR1项的产生式、点的位置、向前看符号集合是否完全相同。
+     */
     override equal(other: LR1Item): boolean {
         if (!(other instanceof LR1Item)) {
             throw new E.TypeNotMatchError();
@@ -130,8 +136,14 @@ class LR1Item extends LRItem {
         if (other.lookahead.length !== this.lookahead.length) {
             return false;
         }
-        // 默认lookahead内不存在重复元素。
-        // 因此只需看other.lookahead是否都在this.lookahead出现过。
+        return this.equalIncludes(other);
+    }
+
+    /**
+     * 只要两个LR1项的产生式和点的位置相同，且此LR1项的向前看符号集合包含了other的所有向前看符号即为真。
+     * （即不要求二者的向前看符号集合完全一致）
+     */
+    equalIncludes(other: LR1Item): boolean {
         for (let i = 0; i < other.lookahead.length; i++) {
             if (!this.lookahead.includes(other.lookahead[i])) {
                 return false;
@@ -214,18 +226,6 @@ abstract class LRItemSet {
     private inKernel(item: LRItem): boolean {
         for (let i = 0; i < this.kernel.length; i++) {
             if (item.equal(this.kernel[i])) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 判断一个LR项是否在闭包内
-     */
-    have(item: LRItem): boolean {
-        for (let i = 0; i < this.closure.length; i++) {
-            if (this.closure[i].equal(item)) {
                 return true;
             }
         }
@@ -319,6 +319,18 @@ class LR0ItemSet extends LRItemSet {
         }
         return stepRes;
     }
+
+    /**
+     * 判断一个LR项是否在闭包内
+     */
+    private have(item: LR0Item): boolean {
+        for (let i = 0; i < this.closure.length; i++) {
+            if (this.closure[i].equal(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 class LR1ItemSet extends LRItemSet {
@@ -364,13 +376,14 @@ class LR1ItemSet extends LRItemSet {
                         let newPtr = new LR1Item(rule, 0, term);
                         if (!this.have(newPtr)) {
                             stepRes.push(newPtr);
+                            this.closure.push(newPtr);
                         }
                     });
                 });
             }
         }
         this.searchIndex++;
-        this.closure.push(...stepRes);
+        // this.closure.push(...stepRes);
         if (this.searchIndex === this.closure.length) {
             this.done = true;
         }
@@ -389,6 +402,18 @@ class LR1ItemSet extends LRItemSet {
             }
         }
         return Array.from(result);
+    }
+
+    /**
+     * 判断一个LR项是否在闭包内
+     */
+    private have(item: LR1Item): boolean {
+        for (let i = 0; i < this.closure.length; i++) {
+            if ((this.closure[i] as LR1Item).equalIncludes(item)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     kernelEqualLr0(otherKer: LR1Item[]): boolean {
@@ -531,13 +556,16 @@ class Automaton {
             } else {
                 this.op = 3;
             }
-            return { op: 1, value: this.currentStateClosure() };
+            let value = this.currentStateClosure();
+            console.log(value.toString());
+            return { op: 1, value };
         } else if (this.op === 2) {
             this.op = 1;
             return { op: 2, value: this.bfsByStep() };
         } else {
             this.op = 2;
             (this.states[this.statePtr] as LR1ItemSet).merge();
+            console.log(this.states[this.statePtr].toString());
             return { op: 3 };
         }
     }
