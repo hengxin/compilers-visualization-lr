@@ -15,7 +15,7 @@ import {
     Symbol as _Symbol,
     Terminal,
     NonTerminal
-} from "./lib/new_example.js";
+} from "./lib/very_simple.js";
 
 abstract class LRItem {
     rule: Rule;
@@ -90,21 +90,29 @@ class LR0Item extends LRItem {
  * [A → α · β, a] (a ∈ T ∪ {$})，此处, a 是向前看符号, 数量为 1。
  */
 class LR1Item extends LRItem {
-    lookahead: _Symbol[] = [];
+    lookahead: Set<_Symbol>;
 
     constructor(rule: Rule, index: number, lookahead: _Symbol);
-    constructor(rule: Rule, index: number, lookahead: _Symbol[]);
-    constructor(rule: Rule, index: number = 0, lookahead: _Symbol | _Symbol[]) {
+    constructor(rule: Rule, index: number, lookahead: Array<_Symbol>);
+    constructor(rule: Rule, index: number, lookahead: Set<_Symbol>);
+    constructor(rule: Rule, index: number = 0, lookahead: _Symbol | Array<_Symbol> | Set<_Symbol>) {
         super(rule, index);
         if (lookahead instanceof _Symbol) {
-            this.lookahead.push(lookahead);
+            this.lookahead = new Set<_Symbol>();
+            this.lookahead.add(lookahead)
 
         } else {
-            if (lookahead.length < 1) {
-                // throw error
+            if (Array.isArray(lookahead)) {
+                if (lookahead.length < 1) {
+                    // throw error
+                }
+            } else {
+                if (lookahead.size < 1) {
+                    // throw error
+                }
             }
-            this.lookahead = lookahead;
-        }
+            this.lookahead = new Set<_Symbol>([...lookahead]);
+        } 
     }
 
     override toString(): string {
@@ -117,12 +125,14 @@ class LR1Item extends LRItem {
             s += this.rule.expansion[i].name;
         }
         s += this.end() ? "·, " : ", ";
-        for (let i = 0; i < this.lookahead.length; i++) {
-            if (i !== 0) {
-                s += "/"
+        let flag = true;
+        this.lookahead.forEach((la) => {
+            if (flag) {
+                s += "/";
+                flag = false;
             }
-            s += this.lookahead[i].name;
-        }
+            s += la.name;
+        });
         return s + " ]";
     }
 
@@ -133,7 +143,7 @@ class LR1Item extends LRItem {
         if (!(other instanceof LR1Item)) {
             throw new E.TypeNotMatchError();
         }
-        if (other.lookahead.length !== this.lookahead.length) {
+        if (other.lookahead.size !== this.lookahead.size) {
             return false;
         }
         return this.equalIncludes(other);
@@ -144,8 +154,8 @@ class LR1Item extends LRItem {
      * （即不要求二者的向前看符号集合完全一致）
      */
     equalIncludes(other: LR1Item): boolean {
-        for (let i = 0; i < other.lookahead.length; i++) {
-            if (!this.lookahead.includes(other.lookahead[i])) {
+        for (let la of other.lookahead) {
+            if (!this.lookahead.has(la)) {
                 return false;
             }
         }
@@ -163,7 +173,7 @@ class LR1Item extends LRItem {
     }
 
     override advance(): LR1Item {
-        return new LR1Item(this.rule, this.index + 1, this.lookahead.slice());
+        return new LR1Item(this.rule, this.index + 1, this.lookahead);
     }
 }
 
@@ -180,7 +190,7 @@ abstract class LRItemSet {
     kernel: LRItem[];
     closure: LRItem[];
     id: number = 0;
-    transitions: Map<_Symbol, LRItemSet> = new Map();
+    transitions: Map<_Symbol, number> = new Map();
     /**
      * 闭包是否计算完成
      */
@@ -244,7 +254,7 @@ abstract class LRItemSet {
     }
 
     setTransition(sym: _Symbol, to: LRItemSet) {
-        this.transitions.set(sym, to);
+        this.transitions.set(sym, to.id);
     }
 
     computeTransitions() {
@@ -309,11 +319,11 @@ class LR0ItemSet extends LRItemSet {
                 // 如果[B -> ·r]不在闭包中，则将[B -> ·r]加入到闭包
                 if (!this.have(newPtr)) {
                     stepRes.push(newPtr);
+                    this.closure.push(newPtr);
                 }
             }
         }
         this.searchIndex++;
-        this.closure.push(...stepRes);
         if (this.searchIndex === this.closure.length) {
             this.done = true;
         }
@@ -383,7 +393,6 @@ class LR1ItemSet extends LRItemSet {
             }
         }
         this.searchIndex++;
-        // this.closure.push(...stepRes);
         if (this.searchIndex === this.closure.length) {
             this.done = true;
         }
@@ -416,14 +425,17 @@ class LR1ItemSet extends LRItemSet {
         return false;
     }
 
-    kernelEqualLr0(otherKer: LR1Item[]): boolean {
-        if (this.kernel.length !== otherKer.length) {
+    /**
+     * 比较两个LR1项集的LR0核心是否一致。即两个LR1项集的内核项，忽略向前看符号，比较是否一致。
+     */
+    lr0kernelEqual(other: LR1ItemSet): boolean {
+        if (this.kernel.length !== other.kernel.length) {
             return false;
         }
-        for (let i = 0; i < otherKer.length; i++) {
+        for (let i = 0; i < other.kernel.length; i++) {
             let f = false;
             for (let j = 0; j < this.kernel.length; j++) {
-                if (otherKer[i].equalLR0(this.kernel[j] as LR1Item)) {
+                if ((other.kernel[i] as LR1Item).equalLR0(this.kernel[j] as LR1Item)) {
                     f = true;
                     break;
                 }
@@ -438,8 +450,8 @@ class LR1ItemSet extends LRItemSet {
     /**
      * 将形如[C -> ·cC, c]、[C -> ·cC, d]的LR(1)项合并为[C -> ·cC, c/d]。
      */
-    merge() {
-        // 合并时不需要考虑内核项。
+    mergeLookaheads() {
+        // 合并时不需要考虑内核项。因为：
         // 1. 如果内核项为[S' -> ·S, $]，自然没有可以与之合并的项。
         // 2. 其余的内核项形如[S -> C·C, a/b]。计算闭包新产生的项均为非内核项，点都在最左端，不会和内核项合并。
         let n: LR1Item[] = [];
@@ -448,7 +460,7 @@ class LR1ItemSet extends LRItemSet {
             for (let j = 0; j < n.length; j++) {
                 if (n[j].rule === this.closure[i].rule && n[j].index === this.closure[i].index) {
                     find = true;
-                    n[j].lookahead = n[j].lookahead.concat((this.closure[i] as LR1Item).lookahead);
+                    n[j].lookahead = new Set<_Symbol>([...n[j].lookahead, ...(this.closure[i] as LR1Item).lookahead]);
                     break;
                 }
             }
@@ -457,6 +469,35 @@ class LR1ItemSet extends LRItemSet {
             }
         }
         this.closure = [...this.kernel, ...n];
+    }
+
+    /**
+     * 将两个LR1项集合并。会修改此LR1项集。
+     * 
+     * 注意：判断两个LR1项集的LR0核心是否一致不在本方法的职责内。
+     * 且合并后transitions关系也需要额外更新。
+     */
+    mergeLr1ItemSet(other: LR1ItemSet) {
+        other.closure.forEach((item) => {
+            for (let i = 0; i < this.closure.length; i++) {
+                if ((this.closure[i] as LR1Item).equalLR0(item as LR1Item)) {
+                    (this.closure[i] as LR1Item).lookahead = new Set<_Symbol>([
+                        ...(this.closure[i] as LR1Item).lookahead,
+                        ...(item as LR1Item).lookahead
+                    ]);
+                }
+            }
+        });
+    }
+
+    updateTransitions(updateMap: Map<number, number>) {
+        let entries = this.transitions.entries();
+        for (let entry of entries) {
+            let newId = updateMap.get(entry[1]);
+            if (newId !== undefined) {
+                this.transitions.set(entry[0], newId);
+            }
+        }
     }
 }
 
@@ -490,7 +531,6 @@ class Automaton {
     private op: AutomatonOperation = 1;
 
     constructor(startRule: Rule, type: AutomatonType) {
-        // let startState = new LR0ItemSet([new LR0Item(startRule)], 0);
         this.type = type;
         let startState = this.type === "LR0" ? new LR0ItemSet([new LR0Item(startRule, 0)], 0) :
             new LR1ItemSet([new LR1Item(startRule, 0, [SYMBOL_END])], 0);
@@ -564,10 +604,37 @@ class Automaton {
             return { op: 2, value: this.bfsByStep() };
         } else {
             this.op = 2;
-            (this.states[this.statePtr] as LR1ItemSet).merge();
+            (this.states[this.statePtr] as LR1ItemSet).mergeLookaheads();
             console.log(this.states[this.statePtr].toString());
             return { op: 3 };
         }
+    }
+
+    transToLalr1() {
+        if (this.type === "LALR1") {
+            // throw info
+        }
+        let mergeMap = new Map<number, number>();
+        let states = this.states as LR1ItemSet[];
+        for (let i = 0; i < this.states.length; i++) {
+            // 被合并的state会被删除，因此需要判断是否为undefined。
+            if (states[i] === undefined) {
+                continue;
+            }
+            for (let j = i + 1; j < this.states.length; j++) {
+                if (states[j] === undefined) {
+                    continue;
+                }
+                if (states[i].lr0kernelEqual(states[j])) {
+                    // 合并LR1项集，记录合并位置，并删除被合并的项集。
+                    mergeMap.set(states[j].id, states[i].id);
+                    states[i].mergeLr1ItemSet(states[j]);
+                    delete states[j];
+                }
+            }
+        }
+        // 更新合并后项集的transition
+        states.forEach((state) => { state.updateTransitions(mergeMap); });
     }
 }
 
@@ -686,10 +753,10 @@ class ParseTable {
             state.transitions.forEach((target, sym) => {
                 if (sym.is_term) {
                     // GOTO(Ii, a) = Ij ∧ a ∈ T =⇒ ACTION[i, a] ← sj
-                    this.insert(this.actionTable, state.id, sym, new Shift(target.id));
+                    this.insert(this.actionTable, state.id, sym, new Shift(target));
                 } else {
                     // GOTO(Ii, A) = Ij ∧ A ∈ N =⇒ GOTO[i, A] ← gj
-                    this.insert(this.gotoTable, state.id, sym, new Goto(target.id));
+                    this.insert(this.gotoTable, state.id, sym, new Goto(target));
                 }
             });
             state.closure.forEach((item) => {
@@ -795,7 +862,7 @@ class ControllableLRParser {
             let ret = PARSER_STORE.symbolMap.get(symbol.name)!;
             return ret;
         }
-        saveInSymbolMap(SYMBOL_START);
+        // saveInSymbolMap(SYMBOL_START);
         saveInSymbolMap(SYMBOL_END);
         PARSER_STORE.rules.forEach((rule, index) => {
             if (rule.origin.name === SYMBOL_START_NAME) {
@@ -811,6 +878,7 @@ class ControllableLRParser {
             throw new E.StartSymbolNotFoundError();
         }
         this.automaton = new Automaton(PARSER_STORE.startRule, this.algo);
+        // 这句话只是让编译器不报错，实际上应该自动机计算完后再创建分析表
         this.parseTable = new ParseTable(this.automaton);
         if (this.algo !== "LR0") {
             this.computeFirstSet();
@@ -867,14 +935,26 @@ class ControllableLRParser {
         return this.tokenList;
     }
 
-    initParse() {
-        // PARSER_STORE.stateStack.push(0);
-        // this.nextToken();
+    automatonStep() {
+        if (this.automaton.done) {
+            // throw info
+        }
+        let r = this.automaton.nextStep();
+        console.log(r);
+    }
+
+    calcParseTable() {
+        this.parseTable = new ParseTable(this.automaton);
+        this.parseTable.compute();
+        console.log(this.parseTable.toString());
     }
 
     parseByStep() {
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
-        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken.type)!;
+        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken.type);
+        if (symOfCurrToken === undefined) {
+            throw new Error();
+        }
         let action = this.parseTable.get("ACTION", stateId, symOfCurrToken);
         if (action === undefined) {
             throw new E.ActionNotExistError();
