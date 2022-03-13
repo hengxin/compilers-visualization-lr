@@ -1,5 +1,5 @@
-import * as E from "./parser-exception.js";
-import { Tree } from "./tree.js";
+import { ParserError, PARSER_EXCEPTION_MSG } from "./parser-exception";
+import { Tree } from "./tree";
 import {
     Token,
     Rule,
@@ -8,21 +8,41 @@ import {
     NonTerminal
 } from "./grammar";
 
-abstract class LRItem {
+/**
+ * LR(0) 项 (Item)
+ * 文法 G 的一个 LR(0) 项是 G 的某个产生式加上一个位于体部的点。
+ * 例：[A → ·XYZ]
+ */
+class LR0Item {
     rule: Rule;
     readonly index: number;
 
     constructor(rule: Rule, index: number = 0) {
         if (index > rule.expansion.length) {
-            throw new E.LRItemIndexOutOfRangeError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_INDEX_OUT_OF_RANGE);
         }
         this.rule = rule;
         this.index = index;
     }
 
-    abstract toString(): string;
+    toString(): string {
+        let s = "[ " + this.rule.origin.name + " ->";
+        for (let i = 0; i < this.rule.expansion.length; i++) {
+            s += " ";
+            if (i === this.index) {
+                s += "·";
+            }
+            s += this.rule.expansion[i].name;
+        }
+        return s + (this.end() ? "·" : "") + " ]";
+    }
 
-    abstract equal(other: LRItem): boolean;
+    equal(other: LR0Item): boolean {
+        if (!(other instanceof LR0Item)) {
+            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_TYPE_NOT_MATCH);
+        }
+        return other.rule === this.rule && other.index === this.index;
+    }
 
     end(): boolean {
         return this.index === this.rule.expansion.length;
@@ -36,42 +56,7 @@ abstract class LRItem {
         return this.rule.expansion[this.index];
     }
 
-    /**
-     * 返回一个index+1的新的RulePtr，并非将本RulePtr右移。
-     */
-    abstract advance(): LRItem;
-}
-
-/**
- * LR(0) 项 (Item)
- * 文法 G 的一个 LR(0) 项是 G 的某个产生式加上一个位于体部的点。
- * 例：[A → ·XYZ]
- */
-class LR0Item extends LRItem {
-    constructor(rule: Rule, index: number = 0) {
-        super(rule, index);
-    }
-
-    override toString(): string {
-        let s = "[ " + this.rule.origin.name + " ->";
-        for (let i = 0; i < this.rule.expansion.length; i++) {
-            s += " ";
-            if (i === this.index) {
-                s += "·";
-            }
-            s += this.rule.expansion[i].name;
-        }
-        return s + (this.end() ? "·" : "") + " ]";
-    }
-
-    override equal(other: LR0Item): boolean {
-        if (!(other instanceof LR0Item)) {
-            throw new E.TypeNotMatchError()
-        }
-        return other.rule === this.rule && other.index === this.index;
-    }
-
-    override advance(): LR0Item {
+    advance(): LR0Item {
         return new LR0Item(this.rule, this.index + 1);
     }
 }
@@ -80,18 +65,29 @@ class LR0Item extends LRItem {
  * LR(1) 项 (Item)
  * [A → α · β, a] (a ∈ T ∪ {$})，此处, a 是向前看符号, 数量为 1。
  */
-class LR1Item extends LRItem {
-    lookahead: _Symbol[] = [];
+class LR1Item extends LR0Item {
+    lookahead: Set<_Symbol>;
 
     constructor(rule: Rule, index: number, lookahead: _Symbol);
-    constructor(rule: Rule, index: number, lookahead: _Symbol[]);
-    constructor(rule: Rule, index: number = 0, lookahead: _Symbol | _Symbol[]) {
+    constructor(rule: Rule, index: number, lookahead: Array<_Symbol>);
+    constructor(rule: Rule, index: number, lookahead: Set<_Symbol>);
+    constructor(rule: Rule, index: number = 0, lookahead: _Symbol | Array<_Symbol> | Set<_Symbol>) {
         super(rule, index);
         if (lookahead instanceof _Symbol) {
-            this.lookahead.push(lookahead);
+            this.lookahead = new Set<_Symbol>();
+            this.lookahead.add(lookahead)
 
         } else {
-            this.lookahead = lookahead;
+            if (Array.isArray(lookahead)) {
+                if (lookahead.length < 1) {
+                    throw new ParserError(PARSER_EXCEPTION_MSG.LOOKAHEAD_EMPTY);
+                }
+            } else {
+                if (lookahead.size < 1) {
+                    throw new ParserError(PARSER_EXCEPTION_MSG.LOOKAHEAD_EMPTY);
+                }
+            }
+            this.lookahead = new Set<_Symbol>([...lookahead]);
         }
     }
 
@@ -105,26 +101,37 @@ class LR1Item extends LRItem {
             s += this.rule.expansion[i].name;
         }
         s += this.end() ? "·, " : ", ";
-        for (let i = 0; i < this.lookahead.length; i++) {
-            if (i !== 0) {
-                s += "/"
+        let flag = true;
+        this.lookahead.forEach((la) => {
+            if (flag) {
+                s += "/";
+                flag = false;
             }
-            s += this.lookahead[i].name;
-        }
+            s += la.name;
+        });
         return s + " ]";
     }
 
+    /**
+     * 比较两个LR1项的产生式、点的位置、向前看符号集合是否完全相同。
+     */
     override equal(other: LR1Item): boolean {
         if (!(other instanceof LR1Item)) {
-            throw new E.TypeNotMatchError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_TYPE_NOT_MATCH);
         }
-        if (other.lookahead.length !== this.lookahead.length) {
+        if (other.lookahead.size !== this.lookahead.size) {
             return false;
         }
-        // 默认lookahead内不存在重复元素。
-        // 因此只需看other.lookahead是否都在this.lookahead出现过。
-        for (let i = 0; i < other.lookahead.length; i++) {
-            if (!this.lookahead.includes(other.lookahead[i])) {
+        return this.equalIncludes(other);
+    }
+
+    /**
+     * 只要两个LR1项的产生式和点的位置相同，且此LR1项的向前看符号集合包含了other的所有向前看符号即为真。
+     * （即不要求二者的向前看符号集合完全一致）
+     */
+    equalIncludes(other: LR1Item): boolean {
+        for (let la of other.lookahead) {
+            if (!this.lookahead.has(la)) {
                 return false;
             }
         }
@@ -136,15 +143,17 @@ class LR1Item extends LRItem {
      */
     equalLR0(other: LR1Item): boolean {
         if (!(other instanceof LR1Item)) {
-            throw new E.TypeNotMatchError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_TYPE_NOT_MATCH);
         }
         return other.rule === this.rule && other.index === this.index;
     }
 
     override advance(): LR1Item {
-        return new LR1Item(this.rule, this.index + 1, this.lookahead.slice());
+        return new LR1Item(this.rule, this.index + 1, this.lookahead);
     }
 }
+
+type LRItem = LR0Item;
 
 
 /**
@@ -159,7 +168,7 @@ abstract class LRItemSet {
     kernel: LRItem[];
     closure: LRItem[];
     id: number = 0;
-    transitions: Map<_Symbol, LRItemSet> = new Map();
+    transitions: Map<_Symbol, number> = new Map();
     /**
      * 闭包是否计算完成
      */
@@ -181,7 +190,16 @@ abstract class LRItemSet {
         this.kernel.forEach((item) => { this.closure.push(item); });
     }
 
-    abstract toString(): string;
+    toString(): string {
+        let s = "ItemSet " + this.id.toString() + ": \n";
+        if (!this.done) {
+            s += "Closure not computed.";
+        } else {
+            this.closure.forEach((item) => { s += item.toString() + "\n"; });
+        }
+        s += "------------";
+        return s;
+    }
 
     /**
      * 通过比较kernel是否相同判断项集是否相同
@@ -211,31 +229,19 @@ abstract class LRItemSet {
         return false;
     }
 
-    /**
-     * 判断一个LR项是否在闭包内
-     */
-    have(item: LRItem): boolean {
-        for (let i = 0; i < this.closure.length; i++) {
-            if (this.closure[i].equal(item)) {
-                return true;
-            }
-        }
-        return false;
-    }
+    abstract computeClosureByStep(): Array<LRItem>;
 
-    abstract computeClosureByStep(all: Rule[]): Array<LRItem>;
-
-    computeClosure(all: Rule[]): Array<Array<LRItem>> {
+    computeClosure(): Array<Array<LRItem>> {
         let steps: Array<Array<LRItem>> = [];
         while (!this.done) {
-            let res = this.computeClosureByStep(all);
+            let res = this.computeClosureByStep();
             steps.push(res);
         }
         return steps;
     }
 
     setTransition(sym: _Symbol, to: LRItemSet) {
-        this.transitions.set(sym, to);
+        this.transitions.set(sym, to.id);
     }
 
     computeTransitions() {
@@ -262,26 +268,16 @@ abstract class LRItemSet {
 }
 
 class LR0ItemSet extends LRItemSet {
-
+    declare kernel: LR0Item[];
+    declare closure: LR0Item[];
     constructor(kernel: LR0Item[], id: number) {
         super(kernel, id);
     }
 
-    override toString(): string {
-        let s = "LR0ItemSet " + this.id.toString() + ": \n";
-        if (!this.done) {
-            s += "Closure not computed.";
-        } else {
-            this.closure.forEach((item) => { s += item.toString() + "\n"; });
-        }
-        s += "------------";
-        return s;
-    }
-
-    override computeClosureByStep(all: Rule[]): Array<LRItem> {
-        let stepRes: Array<LRItem> = [];
+    override computeClosureByStep(): Array<LR0Item> {
+        let stepRes: Array<LR0Item> = [];
         if (this.done) {
-            throw new E.ItemSetClosureDoneInfo();
+            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_CALC_DONE);
         }
         // 遍历闭包中的每一项[A -> a·Bb]
         let item = this.closure[this.searchIndex];
@@ -294,47 +290,50 @@ class LR0ItemSet extends LRItemSet {
             }
         }
         // 寻找产生式B -> r
-        for (let rule of all) {
+        for (let rule of PARSER_STORE.rules) {
             if (rightSym === rule.origin) {
                 let newPtr = new LR0Item(rule, 0);
                 // 如果[B -> ·r]不在闭包中，则将[B -> ·r]加入到闭包
                 if (!this.have(newPtr)) {
                     stepRes.push(newPtr);
+                    this.closure.push(newPtr);
                 }
             }
         }
         this.searchIndex++;
-        this.closure.push(...stepRes);
         if (this.searchIndex === this.closure.length) {
             this.done = true;
         }
         return stepRes;
     }
+
+    /**
+     * 判断一个LR项是否在闭包内
+     */
+    private have(item: LR0Item): boolean {
+        for (let i = 0; i < this.closure.length; i++) {
+            if (this.closure[i].equal(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 class LR1ItemSet extends LRItemSet {
+    declare kernel: LR1Item[];
+    declare closure: LR1Item[];
     constructor(kernel: LR1Item[], id: number) {
         super(kernel, id);
     }
 
-    override toString(): string {
-        let s = "LR1ItemSet " + this.id.toString() + ": \n";
-        if (!this.done) {
-            s += "Closure not computed.";
-        } else {
-            this.closure.forEach((item) => { s += item.toString() + "\n"; });
-        }
-        s += "------------";
-        return s;
-    }
-
-    override computeClosureByStep(all: Rule[]): Array<LRItem> {
-        let stepRes: Array<LRItem> = [];
+    override computeClosureByStep(): Array<LR1Item> {
+        let stepRes: Array<LR1Item> = [];
         if (this.done) {
-            throw new E.ItemSetClosureDoneInfo();
+            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_CALC_DONE);
         }
         // 遍历闭包中的每一项[A → α · Bβ, a] ∈ I (a ∈ T ∪ {$})
-        let item = this.closure[this.searchIndex] as LR1Item;
+        let item = this.closure[this.searchIndex];
         let rightSym: _Symbol = item.rule.expansion[item.index];
         if (!rightSym) {
             this.accepting = true;
@@ -344,7 +343,7 @@ class LR1ItemSet extends LRItemSet {
         }
 
         // 寻找产生式B -> r
-        for (let rule of all) {
+        for (let rule of PARSER_STORE.rules) {
             if (rightSym === rule.origin) {
                 let nextSyms: _Symbol[] = item.rule.expansion.slice(item.index + 1);
                 item.lookahead.forEach((la) => {
@@ -355,13 +354,13 @@ class LR1ItemSet extends LRItemSet {
                         let newPtr = new LR1Item(rule, 0, term);
                         if (!this.have(newPtr)) {
                             stepRes.push(newPtr);
+                            this.closure.push(newPtr);
                         }
                     });
                 });
             }
         }
         this.searchIndex++;
-        this.closure.push(...stepRes);
         if (this.searchIndex === this.closure.length) {
             this.done = true;
         }
@@ -382,14 +381,29 @@ class LR1ItemSet extends LRItemSet {
         return Array.from(result);
     }
 
-    kernelEqualLr0(otherKer: LR1Item[]): boolean {
-        if (this.kernel.length !== otherKer.length) {
+    /**
+     * 判断一个LR项是否在闭包内
+     */
+    private have(item: LR1Item): boolean {
+        for (let i = 0; i < this.closure.length; i++) {
+            if (this.closure[i].equalIncludes(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 比较两个LR1项集的LR0核心是否一致。即两个LR1项集的内核项，忽略向前看符号，比较是否一致。
+     */
+    lr0kernelEqual(other: LR1ItemSet): boolean {
+        if (this.kernel.length !== other.kernel.length) {
             return false;
         }
-        for (let i = 0; i < otherKer.length; i++) {
+        for (let i = 0; i < other.kernel.length; i++) {
             let f = false;
             for (let j = 0; j < this.kernel.length; j++) {
-                if (otherKer[i].equalLR0(this.kernel[j] as LR1Item)) {
+                if (other.kernel[i].equalLR0(this.kernel[j])) {
                     f = true;
                     break;
                 }
@@ -404,8 +418,8 @@ class LR1ItemSet extends LRItemSet {
     /**
      * 将形如[C -> ·cC, c]、[C -> ·cC, d]的LR(1)项合并为[C -> ·cC, c/d]。
      */
-    merge() {
-        // 合并时不需要考虑内核项。
+    mergeLookaheads() {
+        // 合并时不需要考虑内核项。因为：
         // 1. 如果内核项为[S' -> ·S, $]，自然没有可以与之合并的项。
         // 2. 其余的内核项形如[S -> C·C, a/b]。计算闭包新产生的项均为非内核项，点都在最左端，不会和内核项合并。
         let n: LR1Item[] = [];
@@ -414,35 +428,46 @@ class LR1ItemSet extends LRItemSet {
             for (let j = 0; j < n.length; j++) {
                 if (n[j].rule === this.closure[i].rule && n[j].index === this.closure[i].index) {
                     find = true;
-                    n[j].lookahead = n[j].lookahead.concat((this.closure[i] as LR1Item).lookahead);
+                    n[j].lookahead = new Set<_Symbol>([...n[j].lookahead, ...this.closure[i].lookahead]);
                     break;
                 }
             }
             if (!find) {
-                n.push(this.closure[i] as LR1Item);
+                n.push(this.closure[i]);
             }
         }
         this.closure = [...this.kernel, ...n];
     }
+
+    /**
+     * 将两个LR1项集合并。会修改此LR1项集。
+     * 
+     * 注意：判断两个LR1项集的LR0核心是否一致不在本方法的职责内。
+     * 且合并后transitions关系也需要额外更新。
+     */
+    mergeLr1ItemSet(other: LR1ItemSet) {
+        other.closure.forEach((item) => {
+            for (let i = 0; i < this.closure.length; i++) {
+                if (this.closure[i].equalLR0(item)) {
+                    this.closure[i].lookahead = new Set<_Symbol>([
+                        ...this.closure[i].lookahead, ...item.lookahead]);
+                }
+            }
+        });
+    }
+
+    updateTransitions(updateMap: Map<number, number>) {
+        let entries = this.transitions.entries();
+        for (let entry of entries) {
+            let newId = updateMap.get(entry[1]);
+            if (newId !== undefined) {
+                this.transitions.set(entry[0], newId);
+            }
+        }
+    }
 }
 
 type AutomatonState = LRItemSet;
-/**
- * 1: 应该计算ptr指向的状态的CLOSURE。
- * 
- * 2：应该计算ptr指向的状态可转移的状态。
- * 
- * 3: 针对LR(1)，将相同LR(0)核心的LR(1)项合并。
- */
-type AutomatonOperation = 1 | 2 | 3;
-interface AutomatonBfsStepResult {
-    from: AutomatonState,
-    next: AutomatonState
-}
-interface AutomatonStepResult {
-    op: AutomatonOperation,
-    value?: Array<Array<LRItem>> | AutomatonBfsStepResult
-}
 type Algorithm = "LR0" | "LR1" | "LALR1";
 type AutomatonType = "LR0" | "LR1" | "LALR1";
 class Automaton {
@@ -454,10 +479,14 @@ class Automaton {
     readonly type: AutomatonType;
 
     private statePtr: number = 0;
-    private op: AutomatonOperation = 1;
+    /**
+     * 1: 应该计算ptr指向的状态的CLOSURE
+     * 2：应该计算ptr指向的状态可转移的状态
+     * 3：合并LR0部分一致，向前看符号不同的LR1项
+     */
+    private op: 1 | 2 | 3 | 4 = 1;
 
     constructor(startRule: Rule, type: AutomatonType) {
-        // let startState = new LR0ItemSet([new LR0Item(startRule)], 0);
         this.type = type;
         let startState = this.type === "LR0" ? new LR0ItemSet([new LR0Item(startRule, 0)], 0) :
             new LR1ItemSet([new LR1Item(startRule, 0, [SYMBOL_END])], 0);
@@ -467,6 +496,9 @@ class Automaton {
     toString(): string {
         let s = "";
         this.states.forEach((state) => {
+            if (state === undefined) {
+                return; // return箭头函数，即跳过一个foreach
+            }
             s += state.toString() + "\n";
         });
         return s;
@@ -474,14 +506,14 @@ class Automaton {
 
     currentStateClosure(): Array<Array<LRItem>> {
         if (this.statePtr >= this.states.length) {
-            throw new E.AutomatonStatePtrOutOfRangeError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
         }
-        return this.states[this.statePtr].computeClosure(PARSER_STORE.rules);
+        return this.states[this.statePtr].computeClosure();
     }
 
-    bfsByStep(): AutomatonBfsStepResult {
+    bfsByStep() {
         if (this.statePtr >= this.states.length) {
-            throw new E.AutomatonStatePtrOutOfRangeError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
         }
         let { nonTerminalTransitions, terminalTransitions } = this.states[this.statePtr].computeTransitions();
         let stateNum = this.states.length;
@@ -507,31 +539,45 @@ class Automaton {
         if (this.statePtr >= this.states.length) {
             this.done = true;
         }
-        return {
-            from: this.states[this.statePtr - 1],
-            next: this.states[this.statePtr]
-        }
     }
 
-    nextStep(): AutomatonStepResult {
-        if (this.done) {
-            throw new E.AutomatonDoneInfo();
+    mergeLookaheads() {
+        if (this.statePtr >= this.states.length) {
+            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
         }
-        if (this.op === 1) {
-            if (this.type === "LR0") {
-                this.op = 2;
-            } else {
-                this.op = 3;
+        if (this.type !== "LR1") {
+            throw new ParserError(PARSER_EXCEPTION_MSG.INVALID_OPERATION);
+        }
+        (this.states[this.statePtr] as LR1ItemSet).mergeLookaheads();
+    }
+
+    transToLalr1() {
+        if (this.type === "LALR1") {
+            throw new ParserError(PARSER_EXCEPTION_MSG.INVALID_OPERATION);
+        }
+        // mergeMap(a, b)表示id为a的状态合并到了id为b的状态
+        let mergeMap = new Map<number, number>();
+        let states = this.states as LR1ItemSet[];
+        for (let i = 0; i < this.states.length; i++) {
+            // 被合并的state会被删除，因此需要判断是否为undefined。
+            if (states[i] === undefined) {
+                continue;
             }
-            return { op: 1, value: this.currentStateClosure() };
-        } else if (this.op === 2) {
-            this.op = 1;
-            return { op: 2, value: this.bfsByStep() };
-        } else {
-            this.op = 2;
-            (this.states[this.statePtr] as LR1ItemSet).merge();
-            return { op: 3 };
+            for (let j = i + 1; j < this.states.length; j++) {
+                if (states[j] === undefined) {
+                    continue;
+                }
+                if (states[i].lr0kernelEqual(states[j])) {
+                    // 合并LR1项集，记录合并位置，并删除被合并的项集。
+                    mergeMap.set(states[j].id, states[i].id);
+                    states[i].mergeLr1ItemSet(states[j]);
+                    delete states[j];
+                }
+            }
         }
+        // 更新合并后项集的transition
+        states.forEach((state) => { state.updateTransitions(mergeMap); });
+        return mergeMap;
     }
 }
 
@@ -571,7 +617,7 @@ class Accept extends Action {
         super("Accept", "acc", -1);
     }
 }
-type ParseTableInner = Array<Map<_Symbol, Action[]>>;
+type ParseTableInner = Array<Map<_Symbol, Array<Action>>>;
 class ParseTable {
     actionTable: ParseTableInner;
     gotoTable: ParseTableInner;
@@ -650,10 +696,10 @@ class ParseTable {
             state.transitions.forEach((target, sym) => {
                 if (sym.isTerm) {
                     // GOTO(Ii, a) = Ij ∧ a ∈ T =⇒ ACTION[i, a] ← sj
-                    this.insert(this.actionTable, state.id, sym, new Shift(target.id));
+                    this.insert(this.actionTable, state.id, sym, new Shift(target));
                 } else {
                     // GOTO(Ii, A) = Ij ∧ A ∈ N =⇒ GOTO[i, A] ← gj
-                    this.insert(this.gotoTable, state.id, sym, new Goto(target.id));
+                    this.insert(this.gotoTable, state.id, sym, new Goto(target));
                 }
             });
             state.closure.forEach((item) => {
@@ -753,7 +799,7 @@ class ControllableLRParser {
             let ret = PARSER_STORE.symbolMap.get(symbol.name)!;
             return ret;
         }
-        saveInSymbolMap(SYMBOL_START);
+        // saveInSymbolMap(SYMBOL_START);
         saveInSymbolMap(SYMBOL_END);
         // 从产生式中获取所有的符号(Symbol)
         PARSER_STORE.rules.forEach((rule, index) => {
@@ -767,9 +813,10 @@ class ControllableLRParser {
             PARSER_STORE.ruleIndexMap.set(rule, index);
         });
         if (!PARSER_STORE.startRule) {
-            throw new E.StartSymbolNotFoundError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.START_SYMBOL_NOT_FOUND);
         }
         this.automaton = new Automaton(PARSER_STORE.startRule, this.algo);
+        // 这句话只是让编译器不报错，实际上应该自动机计算完后再创建分析表
         this.parseTable = new ParseTable(this.automaton);
         if (this.algo !== "LR0") {
             this.computeFirstSet();
@@ -810,12 +857,20 @@ class ControllableLRParser {
         } while (!finish);
     }
 
+    calcParseTable() {
+        this.parseTable = new ParseTable(this.automaton);
+        this.parseTable.compute();
+        console.log(this.parseTable.toString());
+    }
     parseByStep() {
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
-        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken.type)!;
+        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken.type);
+        if (symOfCurrToken === undefined) {
+            throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
+        }
         let action = this.parseTable.get("ACTION", stateId, symOfCurrToken);
         if (action === undefined) {
-            throw new E.ActionNotExistError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.UNEXPECTED_TOKEN, this.currentToken.value);
         } else if (action.name === "Shift") {
             PARSER_STORE.stateStack.push(action.arg);
             PARSER_STORE.valueStack.push(new Tree(symOfCurrToken, this.currentToken.value));
@@ -829,7 +884,7 @@ class ControllableLRParser {
             let top = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
             let goto = this.parseTable.get("GOTO", top, rule.origin);
             if (goto === undefined) {
-                throw new E.ActionNotExistError();
+                throw new ParserError(PARSER_EXCEPTION_MSG.UNEXPECTED_TOKEN, this.currentToken.value);
             }
             PARSER_STORE.stateStack.push(goto.arg);
             PARSER_STORE.valueStack.push(new Tree(rule.origin, valuePops));
@@ -845,21 +900,10 @@ class ControllableLRParser {
     private nextToken(): Token {
         this.tokenPtr++;
         if (this.tokenPtr >= PARSER_STORE.tokens.length) {
-            throw new E.TokenPtrOutOfRangeError();
+            throw new ParserError(PARSER_EXCEPTION_MSG.TOKEN_LIST_INDEX_OUT_OF_RANGE);
         }
         this.currentToken = PARSER_STORE.tokens[this.tokenPtr];
         return this.currentToken;
-    }
-
-    test() {
-        do {
-            let r = this.automaton.nextStep();
-            console.log(r);
-        } while (!this.automaton.done);
-        console.log(this.automaton.toString());
-        this.parseTable = new ParseTable(this.automaton);
-        this.parseTable.compute();
-        console.log(this.parseTable.toString());
     }
 }
 
