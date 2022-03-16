@@ -1,0 +1,12 @@
+start: stmt
+stmt: IF LP exp RP stmt
+    | IF LP exp RP stmt ELSE stmt
+    | exp
+exp: ID
+ID: /[A-Za-z]+/
+IF.2: "if"
+ELSE.2: "else"
+LP: "("
+RP: ")"
+%import common.WS
+%ignore WS
