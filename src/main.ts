@@ -1,8 +1,7 @@
 import { ParserError } from "./parsers/lr/parser-exception.js";
 import { ControllableLRParser, ParserType } from "./parsers/lr/parser.js";
-function start(type: ParserType) {
+function start(type: ParserType, text: string) {
     try {
-        const text = `ID;`;
         let parser = new ControllableLRParser(text, type);
         while (!parser.automaton.done) {
             let value = parser.automaton.currentStateClosure();
@@ -54,4 +53,4 @@ function start(type: ParserType) {
         }
     }
 }
-start("LR0_LALR1");
+start("LR0", "a+b*c*d+e+f");

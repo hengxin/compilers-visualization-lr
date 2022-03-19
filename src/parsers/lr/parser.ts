@@ -15,7 +15,7 @@ import {
     Symbol as _Symbol,
     Terminal,
     NonTerminal
-} from "./lib/epsilon.js";
+} from "./lib/collision.js";
 
 /**
  * LR(0) 项 (Item)：
@@ -377,6 +377,7 @@ class Automaton {
      * transitions[i].get(X)表示下标为i的项集Ii，通过符号X转移到了项集Ij。
      */
     transitions: Array<Map<_Symbol, number>> = [];
+    transitionsRule: Array<Map<_Symbol, Rule>> = [];
     /**
      * 向前看符号的传播关系：
      * 项集Ii的第k个内核项，会影响若干项集Ij的第m个内核项。
@@ -421,6 +422,7 @@ class Automaton {
         }
         let state = this.states[this.statePtr];
         let transitionKernelMap = new Map<_Symbol, Array<LRItem>>();
+        let transitionRuleMap = new Map<_Symbol, Rule>();
         state.closure.forEach((item) => {
             if (!item.end()) {
                 let sym = item.current();
@@ -428,8 +430,20 @@ class Automaton {
                     transitionKernelMap.set(sym, []);
                 }
                 transitionKernelMap.get(sym)!.push(item.advance());
+
+                // 记录状态转移操作是哪条产生式提供的，如果有多条，记录优先级最高的那条。
+                let transRule = transitionRuleMap.get(sym);
+                if (transRule === undefined) {
+                    transitionRuleMap.set(sym, item.rule);
+                } else {
+                    if (item.rule.options.priority > transRule.options.priority ||
+                        (item.rule.options.priority === transRule.options.priority && item.rule.order > transRule.order)) {
+                        transitionRuleMap.set(sym, item.rule);
+                    }
+                }
             }
         });
+        this.transitionsRule.push(transitionRuleMap);
         let stateNum = this.states.length;
         let trans = new Map<_Symbol, number>();
         transitionKernelMap.forEach((kernel: Array<LRItem>, sym: _Symbol): void => {
@@ -621,10 +635,12 @@ class Action {
     name: ActionName;
     abbr: ActionAbbr;
     arg: number;
-    protected constructor(name: ActionName, abbr: ActionAbbr, arg: number) {
+    rule: Rule;
+    protected constructor(name: ActionName, abbr: ActionAbbr, arg: number, rule: Rule) {
         this.name = name;
         this.abbr = abbr;
         this.arg = arg;
+        this.rule = rule;
     }
     toString() {
         return this.abbr +
@@ -632,23 +648,23 @@ class Action {
     }
 }
 class Shift extends Action {
-    constructor(arg: number) {
-        super("Shift", "s", arg);
+    constructor(arg: number, rule: Rule) {
+        super("Shift", "s", arg, rule);
     }
 }
 class Reduce extends Action {
-    constructor(arg: number) {
-        super("Reduce", "r", arg);
+    constructor(arg: number, rule: Rule) {
+        super("Reduce", "r", arg, rule);
     }
 }
 class Goto extends Action {
-    constructor(arg: number) {
-        super("Goto", "g", arg);
+    constructor(arg: number, rule: Rule) {
+        super("Goto", "g", arg, rule);
     }
 }
 class Accept extends Action {
     constructor() {
-        super("Accept", "acc", -1);
+        super("Accept", "acc", -1, PARSER_STORE.startRule);
     }
 }
 type ParseTableInner = Array<Map<_Symbol, Array<Action>>>;
@@ -719,24 +735,61 @@ class ParseTable {
         return str;
     }
 
+    /**
+     * 填入LR分析表的同时处理二义性的问题。基本处理原则为：
+     * 
+     * 1.比较动作对应产生式的优先级，优先级高的产生式对应的动作优先。
+     * 
+     * 2.如果产生式的左侧相同（即书写文法定义时由同一个符号产生文法规则），书写顺序靠后的产生式对应的动作优先。
+     * 
+     * 3.其余情况无法比较优先级，移入/规约冲突优先选择移入动作，规约/规约冲突选择的动作不确定。
+     */
     private insert(table: ParseTableInner, stateId: number, sym: _Symbol, action: Action) {
-        if (table[stateId].has(sym)) {
-            this.conflict = true;
+        let actions = table[stateId].get(sym);
+        if (actions === undefined) {
+            table[stateId].set(sym, [action]);
         } else {
-            table[stateId].set(sym, []);
+            this.conflict = true;
+            actions.push(action);
+            actions.sort((a, b): number => {
+                if (a instanceof Goto || b instanceof Goto) {
+                    throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
+                }
+                // 注意从大到小排序。无法比较优先级则返回相等
+                if (a.rule.options.priority === b.rule.options.priority) {
+                    if (a.rule.origin !== b.rule.origin) {
+                        return 0;
+                    }
+                    if (b.rule.order !== a.rule.order) {
+                        return b.rule.order - a.rule.order;
+                    }
+                    if (a instanceof Shift) {
+                        return -1;
+                    }
+                    if (b instanceof Shift) {
+                        return 1;
+                    }
+                    return 0;
+                } else {
+                    return b.rule.options.priority - a.rule.options.priority;
+                }
+            });
         }
-        table[stateId].get(sym)!.push(action);
     }
 
     calc() {
         this.automaton.transitions.forEach((stateTrans, stateId) => {
             stateTrans.forEach((target, sym) => {
+                let actionRule = this.automaton.transitionsRule[stateId].get(sym);
+                if (actionRule === undefined) {
+                    throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
+                }
                 if (sym.is_term) {
                     // GOTO(Ii, a) = Ij ∧ a ∈ T =⇒ ACTION[i, a] ← sj
-                    this.insert(this.actionTable, stateId, sym, new Shift(target));
+                    this.insert(this.actionTable, stateId, sym, new Shift(target, actionRule));
                 } else {
                     // GOTO(Ii, A) = Ij ∧ A ∈ N =⇒ GOTO[i, A] ← gj
-                    this.insert(this.gotoTable, stateId, sym, new Goto(target));
+                    this.insert(this.gotoTable, stateId, sym, new Goto(target, actionRule));
                 }
             });
             /**
@@ -755,12 +808,14 @@ class ParseTable {
                         if (this.automaton.type === "LR0") {
                             // [k : A → α·] ∈ Ii ∧ A ̸= S′ =⇒ ∀t ∈ T ∪ {$}. action[i, t] = rk
                             PARSER_STORE.symbolMap.forEach((sym) => {
-                                this.insert(this.actionTable, stateId, sym, new Reduce(PARSER_STORE.ruleIndexMap.get(item.rule)!));
+                                this.insert(this.actionTable, stateId, sym,
+                                    new Reduce(PARSER_STORE.ruleIndexMap.get(item.rule)!, item.rule));
                             });
                         } else {
                             // [k : A → α·, a] ∈ Ii ∧ A ̸= S′ =⇒ action[i, a] = rk
                             item.lookahead.forEach((sym) => {
-                                this.insert(this.actionTable, stateId, sym, new Reduce(PARSER_STORE.ruleIndexMap.get(item.rule)!));
+                                this.insert(this.actionTable, stateId, sym,
+                                    new Reduce(PARSER_STORE.ruleIndexMap.get(item.rule)!, item.rule));
                             });
                         }
                     }
@@ -875,6 +930,10 @@ class ControllableLRParser {
             rule.expansion.forEach((sym: _Symbol, i: number, arr: _Symbol[]) => {
                 arr[i] = saveInSymbolMap(sym);
             });
+            // TODO 这个undefined|null改为0，仅临时使用，合并UI分支后应由Rule类直接初始化为0
+            if (rule.options.priority === undefined || rule.options.priority === null) {
+                rule.options.priority = 0;
+            }
             PARSER_STORE.ruleIndexMap.set(rule, index);
         });
         if (!PARSER_STORE.startRule) {
