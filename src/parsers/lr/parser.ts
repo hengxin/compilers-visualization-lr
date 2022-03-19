@@ -427,8 +427,8 @@ class Automaton {
                 if (transRule === undefined) {
                     transitionRuleMap.set(sym, item.rule);
                 } else {
-                    if (item.rule.options.priority > transRule.options.priority ||
-                        (item.rule.options.priority === transRule.options.priority && item.rule.order > transRule.order)) {
+                    if (item.rule.priority > transRule.priority ||
+                        (item.rule.priority === transRule.priority && item.rule.order > transRule.order)) {
                         transitionRuleMap.set(sym, item.rule);
                     }
                 }
@@ -747,7 +747,7 @@ class ParseTable {
                     throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
                 }
                 // 注意从大到小排序。无法比较优先级则返回相等
-                if (a.rule.options.priority === b.rule.options.priority) {
+                if (a.rule.priority === b.rule.priority) {
                     if (a.rule.origin !== b.rule.origin) {
                         return 0;
                     }
@@ -762,7 +762,7 @@ class ParseTable {
                     }
                     return 0;
                 } else {
-                    return b.rule.options.priority - a.rule.options.priority;
+                    return b.rule.priority - a.rule.priority;
                 }
             });
         }
@@ -919,9 +919,9 @@ class ControllableLRParser {
                 arr[i] = saveInSymbolMap(sym);
             });
             // TODO 这个undefined|null改为0，仅临时使用，合并UI分支后应由Rule类直接初始化为0
-            if (rule.options.priority === undefined || rule.options.priority === null) {
-                rule.options.priority = 0;
-            }
+            // if (rule.priority === undefined || rule.priority === null) {
+            //     rule.priority = 0;
+            // }
             PARSER_STORE.ruleIndexMap.set(rule, index);
         });
         if (!PARSER_STORE.startRule) {
@@ -1021,4 +1021,4 @@ class ControllableLRParser {
     }
 }
 
-export { ControllableLRParser, LRItem, LRItemSet, ParserType }
+export { ControllableLRParser, LRItem, LRItemSet, ParserType };

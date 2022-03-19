@@ -36,25 +36,18 @@ class NonTerminal extends _Symbol {
     }
 }
 
-class RuleOptions {
-    static _type: string = "RuleOptions";
-    keepAllTokens: boolean = true;
-    expand1: boolean = false;
-    priority?: any;
-}
-
 class Rule{
     static _type: string = "Rule";
     origin: _Symbol;
     expansion: _Symbol[];
     order: number;
-    options: RuleOptions;
+    priority: number;
 
-    constructor(origin: _Symbol, expansion: _Symbol[], order: number = 0, options: RuleOptions) {
+    constructor(origin: _Symbol, expansion: _Symbol[], order: number, priority: number) {
         this.origin = origin;
         this.expansion = expansion;
-        this.order = order
-        this.options = options;
+        this.order = order;
+        this.priority = priority;
     }
 
     static deserialize(data: any) {
@@ -66,8 +59,7 @@ class Rule{
             _Symbol.deserialize(data.origin),
             (data.expansion as any[]).map(m => _Symbol.deserialize(m)),
             data.order as number,
-            // alias & options
-            new RuleOptions(),
+            data.options.priority ? data.options.priority as number : 0,
         );
     }
 }

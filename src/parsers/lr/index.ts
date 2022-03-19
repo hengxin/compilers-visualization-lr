@@ -1,5 +1,9 @@
 import { Tree } from "./tree";
 import { Token, Rule, _Symbol, Terminal, NonTerminal } from "./grammar"
-import { ControllableLRParser } from "./parser";
+import { ControllableLRParser, LRItem, LRItemSet } from "./parser";
+import type { ParserType } from "./parser";
 
-export { Tree, Token, Rule, _Symbol, Terminal, NonTerminal, ControllableLRParser};
+export { Tree,
+    Token, Rule, _Symbol, Terminal, NonTerminal,
+    ControllableLRParser, LRItem, LRItemSet, ParserType
+};

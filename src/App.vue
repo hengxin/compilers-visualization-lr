@@ -14,13 +14,13 @@ export default defineComponent({});
 <style scoped>
 .header {
     width: 100%;
-    height: 64px;
+    height: 48px;
     background-color: #001529;
     padding: 0 32px;
     color: aliceblue;
 }
 .content {
-    height: calc(100vh - 96px);
+    height: calc(100vh - 80px);
     width: 100%;
     padding: 32px;
 }

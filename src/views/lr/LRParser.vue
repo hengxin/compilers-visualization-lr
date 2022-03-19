@@ -41,21 +41,8 @@ export default defineComponent({
         loadDependency();
 
         // 创建语法分析器
-        const grammar = ref(`start: e
-e: e "+" t
- | t
-t: t "*" f
- |f
-f: "(" e ")"
- | ID
-
-ID: LETTER (LETTER|DIGIT)*
-LETTER: "_" | "a".."z" | "A".."Z"
-DIGIT: "0".."9"
-
-%import common.WS
-%ignore WS`);
-        const text = ref("id * id");
+        const grammar = ref("");
+        const text = ref("");
         const ruleList = ref<Rule[]>([]);
         const tokenList = ref<Token[]>([]);
         let parser: ControllableLRParser;
