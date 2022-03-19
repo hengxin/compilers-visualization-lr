@@ -1,0 +1,10 @@
+start: expr
+expr: expr STAR expr
+    | expr PLUS expr
+    | ID
+ASSIGNOP: "="
+STAR: "*"
+PLUS: "+"
+ID: /[A-Za-z]+/
+%import common.WS
+%ignore WS

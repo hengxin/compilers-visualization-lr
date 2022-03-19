@@ -1,0 +1,15 @@
+start:e
+e: e "+" t
+| t
+t: t "*" f
+| f
+f: "(" e ")"
+| ID
+
+
+ID: LETTER (LETTER|DIGIT)*
+LETTER: "_" | "a".."z" | "A".."Z"
+DIGIT: "0".."9"
+
+%import common.WS
+%ignore WS

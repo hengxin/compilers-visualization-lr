@@ -48,14 +48,12 @@ class Rule{
     origin: _Symbol;
     expansion: _Symbol[];
     order: number;
-    alias?: any;
-    options?: RuleOptions;
+    options: RuleOptions;
 
-    constructor(origin: _Symbol, expansion: _Symbol[], order: number = 0, alias?: any, options?: RuleOptions) {
+    constructor(origin: _Symbol, expansion: _Symbol[], order: number = 0, options: RuleOptions) {
         this.origin = origin;
         this.expansion = expansion;
         this.order = order
-        this.alias = alias;
         this.options = options;
     }
 
@@ -69,6 +67,7 @@ class Rule{
             (data.expansion as any[]).map(m => _Symbol.deserialize(m)),
             data.order as number,
             // alias & options
+            new RuleOptions(),
         );
     }
 }
