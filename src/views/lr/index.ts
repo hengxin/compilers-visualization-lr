@@ -1,2 +1,2 @@
-import LRParser from "./LRParser.vue";
+import LRParser from "./index.vue";
 export default LRParser;

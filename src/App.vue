@@ -20,7 +20,7 @@ export default defineComponent({});
     color: aliceblue;
 }
 .content {
-    height: calc(100vh - 80px);
+    min-height: calc(100vh - 80px);
     width: 100%;
     padding: 32px;
 }
@@ -29,6 +29,21 @@ export default defineComponent({});
 }
 </style>
 <style>
+:root {
+    --color-klein-blue: #002FA7;
+    --color-white: white;
+    --color-gainsboro: gainsboro;
+    --color-error: rgb(219, 90, 107); /* 海棠红 */
+    --color-error-light: rgba(219, 90, 107, 0.2);
+    --color-success: rgb(33, 166, 117); /* 松柏绿 */
+    --color-success-light: rgb(33, 166, 117, 0.2);
+    --color-info: rgb(89, 118, 186); /* 苍苍 */
+    --color-info-light: rgb(89, 118, 186, 0.2);
+    --color-warning: rgb(202, 105, 36); /* 琥珀 */
+    --color-warning-light: rgba(202, 105, 36, 0.2);
+    --color-primary: rgb(0, 47, 167); /* 克莱因蓝 */
+    --color-primary-light: rgb(0, 47, 167, 0.2);
+}
 html {
     box-sizing: border-box;
 }

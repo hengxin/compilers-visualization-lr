@@ -1,5 +1,9 @@
 {
     "lr": {
         "loadingDependecy": "正在加载依赖"
+    },
+    "ControlInputPanel": {
+        "InputGrammarPlaceholder": "在此输入文法",
+        "InputTextPlaceholder": "在此输入要解析的文本"
     }
 }

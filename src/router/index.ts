@@ -5,7 +5,7 @@ const routes: Array<RouteRecordRaw> = [
     {
         path: "/lr",
         name: "lr",
-        component: () => import("@/views/lr/LRParser.vue"),
+        component: () => import("@/views/lr/index.vue"),
     }
 ];
 
