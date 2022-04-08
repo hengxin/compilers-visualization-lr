@@ -105,7 +105,7 @@ NUMBER : SIGNED_NUMBER
         const started = ref(false);
         function parse() {
             try {
-                initParser(grammar.value, text.value);
+                initParser(algorithm.value, grammar.value, text.value);
             } catch (e) {
                 console.log(e);
             }

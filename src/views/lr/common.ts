@@ -1,4 +1,4 @@
-import { ControllableLRParser, LRItem, Rule, Token } from "@/parsers/lr";
+import { ControllableLRParser, LRItem, ParserType, Rule, Token } from "@/parsers/lr";
 import { Pyodide } from "@/utils/pyodide";
 import EventBus from "@/utils/eventbus";
 import loadLark from "@/utils/lark-loader";
@@ -15,7 +15,7 @@ async function loadDependency(callback: (arg: string) => void) {
     }
 }
 
-function initParser(grammar: string, text: string) {
+function initParser(algorithm: ParserType, grammar: string, text: string) {
     const ruleList: Array<Rule> = [];
     const tokenList: Array<Token> = [];
     pyodide.globals.set("grammar", grammar);
@@ -51,7 +51,7 @@ function initParser(grammar: string, text: string) {
         "del tokenGenerator\n" +
         "del tokenList";
     pyodide.runPython(code);
-    const _parser = new ControllableLRParser("LR0", ruleList, tokenList);
+    const _parser = new ControllableLRParser(algorithm, ruleList, tokenList);
     parser = _parser;
     EventBus.publish("lr", "AutomatonStart", parser.automaton.states[0]);
     return _parser;

@@ -48,23 +48,32 @@ export default defineComponent({
         props.state.kernel.forEach((item) => {
             kernel.value.push(item);
         });
-        function handleClosureStep(items: Array<LRItem>) {
+        function handleClosureStep(items: Array<LRItem>, update: boolean = true) {
             currentItem.value++;
             calculating.value = true;
             uncalculated.value = false;
             items.forEach((item) => {
                 closureExceptKernel.value.push(item);
             });
+            if (items.length !== 0 && update) {
+                ctx.emit("stateUpdate", props.state.id);
+            }
         }
         function handleMergeLookaheads(state: LRItemSet) {
             calculating.value = false;
+            console.log(state.kernel)
+            console.log(state.closure)
             kernel.value = [...state.kernel];
-            closureExceptKernel.value = [...state.closure].splice(0, kernel.value.length);
+            console.log([...state.closure])
+            console.log(kernel.value.length);
+            closureExceptKernel.value = [...state.closure];
+            closureExceptKernel.value.splice(0, kernel.value.length)
         }
         function handleClosure(itemSteps: Array<Array<LRItem>>) {
             itemSteps.forEach((items) => {
-                handleClosureStep(items);
+                handleClosureStep(items, false);
             });
+            ctx.emit("stateUpdate", props.state.id);
         }
         function handleClosureDone() {
             calculating.value = false;
@@ -85,16 +94,14 @@ export default defineComponent({
 </script>
 <style scoped>
 .state-container {
-    border: 2px var(--color-klein-blue) solid;
+    border: 3px var(--color-klein-blue) solid;
     width: fit-content;
-    font-size: 12px;
 }
 .state-highlight {
     border-color: gold;
 }
 .state-uncalculated {
-    opacity: 0.5;
-    border-color: lightgray;
+    border-style: dashed;
 }
 .state-id {
     font-weight: bold;
@@ -116,7 +123,7 @@ export default defineComponent({
     position: relative;
 }
 .closure-item {
-    animation: 0.2s slidein;
+    animation: 0.5s slide-in;
 }
 .lr-item-calcualting::before {
     content: "→";
@@ -124,7 +131,7 @@ export default defineComponent({
     left: -20px;
 }
 
-@keyframes slidein {
+@keyframes slide-in {
     from {
         opacity: 0;
         transform: translateX(50%);

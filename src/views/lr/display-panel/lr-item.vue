@@ -20,6 +20,7 @@ export default defineComponent({
                 renderData.push({ value: lookahead[i].name, class: "lr-item-lookahead" });
             }
         }
+        console.log("*")
         // 之前都是在renderData里面直接填h(...)，但是发现标签内没有data-xxxx属性导致scoped无效
         // 所以renderdata里只填数据，在return时map到h(...)
         return () => h("div", { class: "lr-item" }, [

@@ -358,7 +358,7 @@ type Algorithm = "LR0" | "LR1" | "LR1_LALR1" | "LR0_LALR1";
 type ParserType = Algorithm;
 
 interface StateClosureResult { id: number, closureSteps: Array<Array<LRItem>> }
-interface BfsStepResult { from: number, targets: Array<{ symbol: string, state: LRItemSet }> }
+interface BfsStepResult { from: number, targets: Array<{ symbol: _Symbol, state: LRItemSet }> }
 
 class Automaton {
     /**
@@ -444,7 +444,7 @@ class Automaton {
         this.transitionsRule.push(transitionRuleMap);
         let stateNum = this.states.length;
         let trans = new Map<_Symbol, number>();
-        let targetArr: Array<{ symbol: string, state: LRItemSet }> = [];
+        let targetArr: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
         transitionKernelMap.forEach((kernel: Array<LRItem>, sym: _Symbol): void => {
             let target = -1;
             // 从一个项集GOTO操作，检查GOTO(I,X)是否已经存在
@@ -459,14 +459,14 @@ class Automaton {
                 this.states.push(new LRItemSet(kernel, target));
             }
             trans.set(sym, target);
-            targetArr.push({ symbol: sym.name, state: this.states[target] });
+            targetArr.push({ symbol: sym, state: this.states[target] });
         });
         this.transitions.push(trans);
         this.statePtr++;
         if (this.statePtr >= this.states.length) {
             this.done = true;
         }
-        return { from: this.statePtr - 1, targets: targetArr };
+        return { from: this.states[this.statePtr - 1].id, targets: targetArr };
     }
 
     mergeLookaheads(): LRItemSet {
