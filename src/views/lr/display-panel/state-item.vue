@@ -15,7 +15,7 @@
                 :lr-item="lrItem"
             ></LrItemComponent>
         </div>
-        <div class="state-closure">
+        <div class="state-closure" :key="updateKey">
             <LrItemComponent
                 v-for="(lrItem, index) in closureExceptKernel"
                 :class="(calculating && index === (currentItem - kernel.length)) ? 'lr-item-calcualting' : ''"
@@ -26,14 +26,13 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, PropType, ref, h, onUnmounted } from "vue";
+import { defineComponent, PropType, ref, onUnmounted } from "vue";
 import { LRItem, LRItemSet } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 import LrItemComponent from "./lr-item.vue";
 export default defineComponent({
     props: {
         state: { type: Object as PropType<LRItemSet>, required: true },
-        // state: { type: Object, required: true },
     },
     components: {
         LrItemComponent,
@@ -59,15 +58,13 @@ export default defineComponent({
                 ctx.emit("stateUpdate", props.state.id);
             }
         }
+        const updateKey = ref(0); // 仅用来强制刷新组件
         function handleMergeLookaheads(state: LRItemSet) {
             calculating.value = false;
-            console.log(state.kernel)
-            console.log(state.closure)
             kernel.value = [...state.kernel];
-            console.log([...state.closure])
-            console.log(kernel.value.length);
             closureExceptKernel.value = [...state.closure];
-            closureExceptKernel.value.splice(0, kernel.value.length)
+            closureExceptKernel.value.splice(0, kernel.value.length);
+            updateKey.value++;
         }
         function handleClosure(itemSteps: Array<Array<LRItem>>) {
             itemSteps.forEach((items) => {
@@ -86,7 +83,7 @@ export default defineComponent({
             EventBus.subscribe("lr", "State" + props.state.id + "ClosureDone", handleClosureDone),
         ]
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
-        return { kernel, closureExceptKernel, currentItem, calculating, done, uncalculated };
+        return { kernel, closureExceptKernel, currentItem, calculating, done, uncalculated, updateKey };
     }
 });
 
@@ -96,6 +93,7 @@ export default defineComponent({
 .state-container {
     border: 3px var(--color-klein-blue) solid;
     width: fit-content;
+    /* background-color: rgba(255, 255, 255, 0.8); */
 }
 .state-highlight {
     border-color: gold;
@@ -106,18 +104,19 @@ export default defineComponent({
 .state-id {
     font-weight: bold;
     font-style: italic;
-    margin: 0 auto;
-    width: fit-content;
+    text-align: center;
+    width: 100%;
     font-family: "Times New Roman";
+    background-color: rgba(255, 255, 255, 0.85);
 }
 .state-id-sub {
     font-style: normal;
 }
 .state-kernel {
-    /* height: 100px; */
+    background-color: rgba(255, 255, 255, 0.85);
 }
 .state-closure {
-    background-color: lightgray;
+    background-color: rgba(211, 211, 211, 0.85);
 }
 .lr-item {
     position: relative;

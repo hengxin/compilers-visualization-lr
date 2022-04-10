@@ -857,7 +857,7 @@ const PARSER_STORE = {
 
 const SYMBOL_START_NAME = "start";
 const SYMBOL_START = new Terminal(SYMBOL_START_NAME);
-const SYMBOL_END_NAME = "$END";
+const SYMBOL_END_NAME = "$";
 const SYMBOL_END = new Terminal(SYMBOL_END_NAME);
 const SYMBOL_EPSILON_NAME = "$EPSILON"
 const SYMBOL_EPSILON = new Terminal(SYMBOL_EPSILON_NAME);

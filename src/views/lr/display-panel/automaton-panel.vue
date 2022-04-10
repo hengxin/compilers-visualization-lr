@@ -1,9 +1,8 @@
 <template>
     <div class="automaton-panel" ref="automatonPanel">
         <div
-            :style="{ position: 'relative', height: totalHeight + '1000px', width: totalWidth + '1000px' }"
+            :style="{ position: 'relative', height: totalHeight + 'px', width: totalWidth + 'px' }"
         >
-            <button @click="test">ddd</button>
             <div
                 v-for="(item, key) in stateItems"
                 :key="key"
@@ -11,6 +10,8 @@
                 :style="{ position: 'absolute', top: item[1].top + 'px', left: item[1].left + 'px' }"
                 :class="item[1].hidden ? 'hidden' : ''"
                 class="state-item-container"
+                @mouseenter="handleStateMouseEnter(item[1])"
+                @mouseleave="handleStateMouseLeave()"
             >
                 <StateItem :state="item[1].state" @stateUpdate="stateUpdate"></StateItem>
             </div>
@@ -33,14 +34,14 @@
                     >{{ item[1].symbol.name }}</text>
                     <polyline
                         :points="item[1].points.join(' ') + ' ' + (item[1].type === 'Self'
-                            ?
-                            ((item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] + GAP_ARROW) + ' ' +
-                            item[1].points[item[1].points.length - 1][0] + ',' + item[1].points[item[1].points.length - 1][1] + ' ' +
-                            (item[1].points[item[1].points.length - 1][0] + GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] + GAP_ARROW) + ' ')
-                            :
-                            ((item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] - GAP_ARROW) + ' ' +
-                            item[1].points[item[1].points.length - 1][0] + ',' + item[1].points[item[1].points.length - 1][1] + ' ' +
-                            (item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] + GAP_ARROW) + ' '))"
+                    ?
+                    ((item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] + GAP_ARROW) + ' ' +
+                        item[1].points[item[1].points.length - 1][0] + ',' + item[1].points[item[1].points.length - 1][1] + ' ' +
+                        (item[1].points[item[1].points.length - 1][0] + GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] + GAP_ARROW) + ' ')
+                    :
+                    ((item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] - GAP_ARROW) + ' ' +
+                        item[1].points[item[1].points.length - 1][0] + ',' + item[1].points[item[1].points.length - 1][1] + ' ' +
+                        (item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] + GAP_ARROW) + ' '))"
                         class="state-goto-line"
                     />
                 </g>
@@ -60,17 +61,11 @@ interface StateItemData {
     top: number,
     left: number,
     column: number,
-    row: number,
-
-    edgeInTop: number, // 从左边的入边至顶部的距离
-    edgeOutTop: number, // 从右上的出边至顶部的距离
-    edgeOutBottom: number, // 从右下的出边至底部的距离
     linesIn: Array<number>,
     linesToRight: Array<number>,
     linesToLeft: Array<number>,
     linesToSameColumn: Array<number>,
     linesToSelf: Array<number>
-
     hidden: boolean,
 }
 interface LineBlockData {
@@ -78,12 +73,8 @@ interface LineBlockData {
     symbol: _Symbol,
     from: number,
     to: number,
-    // 线在canvas内的拐点，线条走向不同拐点个数不同。注意：坐标为canvas内部坐标。
-    // 可能也不需要存points？存不存都要重新算？
     type: "Right" | "Left" | "Self" | "SameColumn",
     points: Array<[number, number]>,
-    // columnData: ColumnData,
-
     hidden: boolean,
 }
 interface ColumnData {
@@ -94,25 +85,20 @@ interface ColumnData {
 
     linesPassByRight: Array<number>,
     linesPassByLeft: Array<number>,
-    // linesToThisColumn: Array<number>,
     linesPassByBottom: Array<number>,
-    // linesToSelf: Array<number>,
 }
 const GAP_OUT = 16;
 const GAP_IN = 8;
-const GAP_INITIAL = 16;
+const GAP_INITIAL_LARGE = 16;
+const GAP_INITIAL_SMALL = 8;
 const GAP_LINE = 12;
 const GAP_MARGIN = 48;
 const GAP_STATE = 32;
 const GAP_ARROW = 4;
 const GAP_OFFSET = GAP_LINE / 2;
-function generateStateItemData(state: LRItemSet, top: number, left: number, column: number, row: number,
-    edgeInTop?: number, edgeOutTop?: number, edgeOutBottom?: number): StateItemData {
+function generateStateItemData(state: LRItemSet, top: number, left: number, column: number): StateItemData {
     return {
-        state, top, left, column, row,
-        edgeInTop: edgeInTop ? edgeInTop : 0,
-        edgeOutTop: edgeOutTop ? edgeOutTop : 0,
-        edgeOutBottom: edgeOutBottom ? edgeOutBottom : 0,
+        state, top, left, column,
         linesIn: [], linesToLeft: [], linesToRight: [], linesToSameColumn: [], linesToSelf: [],
         hidden: false,
     };
@@ -126,20 +112,13 @@ export default defineComponent({
         const stateRefs: Map<number, HTMLDivElement> = new Map();
         const totalHeight = ref(0);
         const totalWidth = ref(0);
-        function test() {
-            console.log(stateRefs);
-        }
-
         const stateItems = ref<Map<number, StateItemData>>(new Map());
         const lineBlocks = ref<Map<number, LineBlockData>>(new Map());
-        // const lineCanvasRefs: Map<number, HTMLCanvasElement> = new Map();
         const columns: Array<ColumnData> = [];
-        // stateId -> columnIndex
-        const stateIdToColumnMap: Map<number, number> = new Map();
 
         // state内部变化会影响该列下侧和右边列
         function stateUpdate(stateId: number) {
-            let columnIdx = stateIdToColumnMap.get(stateId)!;
+            let columnIdx = stateItems.value.get(stateId)!.column;
             let column = columns[columnIdx];
             let row = 0;
             for (; row < column.stateIds.length; row++) {
@@ -194,8 +173,7 @@ export default defineComponent({
         }
 
         function handleStart(state: LRItemSet) {
-            stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0, 0));
-            stateIdToColumnMap.set(state.id, 0);
+            stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0));
             columns.push({
                 stateIds: [state.id],
                 bottom: 0,
@@ -205,7 +183,7 @@ export default defineComponent({
             });
         }
         function handleAppendStates(res: BfsStepResult) {
-            let currentColumnIdx = stateIdToColumnMap.get(res.from)!
+            let currentColumnIdx = stateItems.value.get(res.from)!.column;
             let currentColumn = columns[currentColumnIdx];
             let nextColumn: ColumnData = columns[currentColumnIdx + 1];
             if (nextColumn === undefined) {
@@ -215,11 +193,10 @@ export default defineComponent({
             let toLeft: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
             let toRight: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
             let toThisColumn: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
-            let row = 0;
             res.targets.forEach((target) => {
                 if (stateItems.value.has(target.state.id)) {
                     // 指向已有的State
-                    let targetColumnIdx = stateIdToColumnMap.get(target.state.id)!;
+                    let targetColumnIdx = stateItems.value.get(target.state.id)!.column;
                     if (targetColumnIdx < currentColumnIdx) {
                         toLeft.push(target);
                     } else if (targetColumnIdx > currentColumnIdx) {
@@ -229,9 +206,7 @@ export default defineComponent({
                     }
                 } else {
                     // 指向新的State
-                    row++;
-                    stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, columns.length - 1, row))
-                    stateIdToColumnMap.set(target.state.id, columns.length - 1);
+                    stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, columns.length - 1))
                     nextColumn.stateIds.push(target.state.id);
                     toRight.push(target);
                 }
@@ -243,6 +218,7 @@ export default defineComponent({
             function setLocation(i: number, bottom: number, right: number) {
                 if (i >= nextColumn.stateIds.length) {
                     totalHeight.value = Math.max(totalHeight.value, bottom);
+                    totalWidth.value = Math.max(totalWidth.value, right);
                     nextColumn.right = Math.max(currentColumn.right, right);
                     nextColumn.bottom = bottom;
                     draw();
@@ -349,26 +325,28 @@ export default defineComponent({
             let points: Array<[number, number]> = [];
             if (lineBlock.type === "Right") {
                 let startX = fromRef.offsetLeft + fromRef.offsetWidth;
-                let startY = fromRef.offsetTop + GAP_INITIAL + GAP_OUT * from.linesToRight.indexOf(lineBlockId);
+                let startY = fromRef.offsetTop + GAP_INITIAL_LARGE + GAP_OUT * from.linesToRight.indexOf(lineBlockId);
                 let endX = toRef.offsetLeft;
-                let endY = toRef.offsetTop + GAP_INITIAL + GAP_IN * to.linesIn.indexOf(lineBlockId);
+                let endY = toRef.offsetTop + GAP_INITIAL_SMALL + GAP_IN * to.linesIn.indexOf(lineBlockId);
                 let right = columns[from.column].right + GAP_MARGIN + GAP_LINE * columns[from.column].linesPassByRight.indexOf(lineBlockId);
-                console.log("LINEPASSBYRIGHT: ", columns[from.column].linesPassByRight.indexOf(lineBlockId))
+                totalWidth.value = Math.max(totalWidth.value, right + GAP_MARGIN);
                 points.push([startX, startY]);
                 points.push([right, startY]);
                 points.push([right, endY]);
                 points.push([endX, endY]);
             } else if (lineBlock.type === "Left") {
                 let startX = fromRef.offsetLeft + fromRef.offsetWidth;
-                let startY = fromRef.offsetTop + fromRef.offsetHeight - GAP_INITIAL - GAP_OUT * from.linesToLeft.indexOf(lineBlockId);
+                let startY = fromRef.offsetTop + fromRef.offsetHeight - GAP_INITIAL_LARGE - GAP_OUT * from.linesToLeft.indexOf(lineBlockId);
                 let endX = toRef.offsetLeft;
-                let endY = toRef.offsetTop + GAP_INITIAL + GAP_IN * to.linesIn.indexOf(lineBlockId);
+                let endY = toRef.offsetTop + GAP_INITIAL_SMALL + GAP_IN * to.linesIn.indexOf(lineBlockId);
                 let right = columns[from.column].right + GAP_MARGIN + GAP_LINE * columns[from.column].linesPassByRight.indexOf(lineBlockId);
                 let left = endX - GAP_MARGIN - GAP_OFFSET - GAP_LINE * columns[to.column].linesPassByLeft.indexOf(lineBlockId);
                 let bottom = 0;
                 for (let i = from.column; i >= to.column; i--) {
                     bottom = Math.max(bottom, columns[i].bottom + GAP_MARGIN + GAP_LINE * columns[i].linesPassByBottom.indexOf(lineBlockId));
                 }
+                totalWidth.value = Math.max(totalWidth.value, right + GAP_MARGIN);
+                totalHeight.value = Math.max(totalHeight.value, bottom + GAP_MARGIN);
                 points.push([startX, startY]);
                 points.push([right, startY]);
                 points.push([right, bottom]);
@@ -377,9 +355,9 @@ export default defineComponent({
                 points.push([endX, endY]);
             } else if (lineBlock.type === "SameColumn") {
                 let startX = fromRef.offsetLeft;
-                let startY = fromRef.offsetTop + fromRef.offsetHeight - GAP_INITIAL - GAP_OUT * (from.linesToSameColumn.indexOf(lineBlockId) + 1); // 多减一个GAP_OUT是为自环预留位
+                let startY = fromRef.offsetTop + fromRef.offsetHeight - GAP_INITIAL_SMALL - GAP_OUT * (from.linesToSameColumn.indexOf(lineBlockId) + 1); // 多减一个GAP_OUT是为自环预留位
                 let endX = startX;
-                let endY = toRef.offsetTop + GAP_INITIAL + GAP_IN * to.linesIn.indexOf(lineBlockId);
+                let endY = toRef.offsetTop + GAP_INITIAL_SMALL + GAP_IN * to.linesIn.indexOf(lineBlockId);
                 let left = startX - GAP_MARGIN - GAP_OFFSET - GAP_LINE * columns[from.column].linesPassByLeft.indexOf(lineBlockId);
                 points.push([startX, startY]);
                 points.push([left, startY]);
@@ -387,16 +365,18 @@ export default defineComponent({
                 points.push([endX, endY]);
             } else { // lineBlock.type === "Self"
                 let startX = fromRef.offsetLeft;
-                let startY = fromRef.offsetTop + fromRef.offsetHeight - GAP_INITIAL;
-                let endX = fromRef.offsetLeft + GAP_INITIAL;
+                let startY = fromRef.offsetTop + fromRef.offsetHeight - GAP_INITIAL_SMALL;
+                let endX = fromRef.offsetLeft + GAP_INITIAL_LARGE;
                 let endY = fromRef.offsetTop + fromRef.offsetHeight;
+                let left = startX - GAP_MARGIN + GAP_OFFSET;
+                let bottom = endY + GAP_STATE / 2;
+                totalHeight.value = Math.max(totalHeight.value, bottom + GAP_MARGIN);
                 points.push([startX, startY]);
-                points.push([startX - GAP_MARGIN + GAP_OFFSET, startY]);
-                points.push([startX - GAP_MARGIN + GAP_OFFSET, endY + GAP_STATE / 2]);
-                points.push([endX, endY + GAP_STATE / 2]);
+                points.push([left, startY]);
+                points.push([left, bottom]);
+                points.push([endX, bottom]);
                 points.push([endX, endY]);
             }
-            console.log(points);
             lineBlock.points = points;
         }
         const unsubscribe = [
@@ -405,6 +385,39 @@ export default defineComponent({
         ];
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
 
+        function handleStateMouseEnter(stateItem: StateItemData) {
+            stateItems.value.forEach(item => item.hidden = true);
+            lineBlocks.value.forEach(item => item.hidden = true);
+            stateItem.hidden = false;
+            stateItem.linesToLeft.forEach((line) => {
+                let lineBlock = lineBlocks.value.get(line)!;
+                lineBlock.hidden = false;
+                let to = stateItems.value.get(lineBlock.to)!;
+                to.hidden = false;
+            });
+            stateItem.linesToRight.forEach((line) => {
+                let lineBlock = lineBlocks.value.get(line)!;
+                lineBlock.hidden = false;
+                let to = stateItems.value.get(lineBlock.to)!;
+                to.hidden = false;
+            });
+            stateItem.linesToSameColumn.forEach((line) => {
+                let lineBlock = lineBlocks.value.get(line)!;
+                lineBlock.hidden = false;
+                let to = stateItems.value.get(lineBlock.to)!;
+                to.hidden = false;
+            });
+            stateItem.linesToSelf.forEach((line) => {
+                let lineBlock = lineBlocks.value.get(line)!;
+                lineBlock.hidden = false;
+                let to = stateItems.value.get(lineBlock.to)!;
+                to.hidden = false;
+            });
+        }
+        function handleStateMouseLeave() {
+            stateItems.value.forEach(item => item.hidden = false);
+            lineBlocks.value.forEach(item => item.hidden = false);
+        }
         function handleLineMouseEnter(lineBlock: LineBlockData) {
             stateItems.value.forEach((item, id) => {
                 if (id === lineBlock.from || id === lineBlock.to) {
@@ -420,12 +433,8 @@ export default defineComponent({
             });
         }
         function handleLineMouseLeave() {
-            stateItems.value.forEach((item) => {
-                item.hidden = false;
-            });
-            lineBlocks.value.forEach((item) => {
-                item.hidden = false;
-            });
+            stateItems.value.forEach(item => item.hidden = false);
+            lineBlocks.value.forEach(item => item.hidden = false);
         }
 
         // 拖拽滚动功能
@@ -469,8 +478,9 @@ export default defineComponent({
 
         return {
             stateItems, lineBlocks, automatonPanel,
-            stateUpdate, test, stateRefs,
+            stateUpdate, stateRefs,
             GAP_ARROW, totalHeight, totalWidth,
+            handleStateMouseEnter, handleStateMouseLeave,
             handleLineMouseEnter, handleLineMouseLeave,
         };
     }
@@ -490,6 +500,7 @@ export default defineComponent({
 }
 .state-item-container {
     animation: 0.5s fade-in;
+    z-index: 100;
 }
 @keyframes fade-in {
     from {
@@ -508,6 +519,7 @@ svg {
     stroke-linejoin: round;
     fill: none;
     animation: 0.5s line-move;
+    z-index: 10;
 }
 @keyframes line-move {
     from {
@@ -525,12 +537,14 @@ svg {
 }
 .line-text {
     transform: translateY(-3px);
+    font-weight: bold;
+    z-index: 50;
 }
 .line-text-shift {
     /* transform: translateX(-100%); */
     text-anchor: end;
 }
 .hidden {
-    opacity: 0.3;
+    opacity: 0.2;
 }
 </style>

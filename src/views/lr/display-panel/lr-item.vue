@@ -1,34 +1,27 @@
+<template>
+    <div class="lr-item">
+        <span class="lr-item-symbol non-terminal">{{ lrItem.rule.origin.name }}</span>
+        <span class="lr-item-arrow">→</span>
+        <span class="lr-item-dot" v-if="lrItem.index === 0">·</span>
+        <template v-for="(sym, index) in lrItem.rule.expansion">
+            <span
+                :class="['lr-item-symbol', sym.isTerm ? 'terminal' : 'non-terminal']"
+            >{{ sym.name }}</span>
+            <span class="lr-item-dot" v-if="(index + 1) === lrItem.index">·</span>
+        </template>
+        <template v-if="lrItem.lookahead.size > 0">
+            <span class="lr-item-comma">,</span>
+            <span class="lr-item-lookahead terminal" v-for="(la) in lrItem.lookahead">{{ la.name }}</span>
+        </template>
+    </div>
+</template>
 <script lang="ts">
-import { defineComponent, PropType, h } from "vue";
+import { defineComponent, PropType } from "vue";
 import { LRItem } from "@/parsers/lr";
 
 export default defineComponent({
     props: { lrItem: { type: Object as PropType<LRItem>, required: true } },
-    setup(props, ctx) {
-        const lrItem: LRItem = props.lrItem;
-        let renderData: Array<{ value: string, class: string }> = [];
-        lrItem.rule.expansion.forEach((sym) => {
-            renderData.push({ value: sym.name, class: "lr-item-symbol " + (sym.isTerm ? "terminal" : "non-terminal") });
-        });
-        renderData.splice(lrItem.index, 0, { value: "·", class: "lr-item-dot" });
-        let lookahead = Array.from(lrItem.lookahead);
-        if (lookahead.length > 0) {
-            renderData.push({ value: ",", class: "lr-item-comma" });
-            renderData.push({ value: lookahead[0].name, class: "lr-item-lookahead" });
-            for (let i = 1; i < lookahead.length; i++) {
-                renderData.push({ value: "/", class: "lr-item-lookahead-sep" });
-                renderData.push({ value: lookahead[i].name, class: "lr-item-lookahead" });
-            }
-        }
-        console.log("*")
-        // 之前都是在renderData里面直接填h(...)，但是发现标签内没有data-xxxx属性导致scoped无效
-        // 所以renderdata里只填数据，在return时map到h(...)
-        return () => h("div", { class: "lr-item" }, [
-            h("span", { class: "lr-item-symbol non-terminal" }, lrItem.rule.origin.name),
-            h("span", { class: "lr-item-arrow" }, "→"),
-            ...renderData.map((r) => h("span", { class: r.class }, r.value)),
-        ]);
-    }
+    setup() {}
 });
 </script>
 <style scoped>
@@ -49,5 +42,17 @@ export default defineComponent({
 .lr-item-comma,
 .lr-item-lookahead-sep {
     font-family: "Cambria Math";
+}
+.lr-item-comma {
+    margin: 0 4px 0 0;
+}
+.lr-item-lookahead:last-child {
+    margin-right: 2px;
+}
+.lr-item-lookahead::after {
+    content: "/";
+}
+.lr-item-lookahead:last-child::after {
+    content: "";
 }
 </style>
