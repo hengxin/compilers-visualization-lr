@@ -5,7 +5,7 @@
         <GButton>状态转换</GButton>
         <div>
             <span>手动模式：</span>
-            <GSwitch v-model="manual"></GSwitch>
+            <GSwitch v-model="manual" @change="switchMode"></GSwitch>
         </div>
     </div>
     <div class="automaton-display-panel" ref="displayPanel">
@@ -490,7 +490,8 @@ export default defineComponent({
 
         const manual = ref(false);
         const currentState = ref(-1);
-
+        function switchMode(value: boolean) {
+        }
 
         return {
             stateItems, lineBlocks, displayPanel,
@@ -498,7 +499,7 @@ export default defineComponent({
             GAP_ARROW, totalHeight, totalWidth,
             handleStateMouseEnter, handleStateMouseLeave,
             handleLineMouseEnter, handleLineMouseLeave,
-            manual, currentState,
+            manual, currentState, switchMode,
         };
     }
 });

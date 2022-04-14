@@ -17,9 +17,11 @@ export default defineComponent({
         inactiveText: { type: String, default: "" },
         modelValue: { type: Boolean, required: true },
     },
+    emits: ["update:modelValue", "change"],
     setup(props, ctx) {
         function switchChange() {
             ctx.emit("update:modelValue", !props.modelValue);
+            ctx.emit("change", props.modelValue);
         }
         return { switchChange };
     },
