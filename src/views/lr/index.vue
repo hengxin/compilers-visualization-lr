@@ -1,8 +1,9 @@
 <template>
     <div v-if="larkLoaded">
-        <ControlInputPanel></ControlInputPanel>
-        <Automaton></Automaton>
+        <InputPanel></InputPanel>
+        <Automaton v-if="showAutomaton"></Automaton>
         <ParseTableVue v-if="showParseTable" :parse-table="parseTable!"></ParseTableVue>
+        <ParseTree></ParseTree>
     </div>
     <div v-else>
         {{ t("lr.loadingDependecy") }}
@@ -11,27 +12,28 @@
     </div>
 </template>
 <script lang="ts">
-import EventBus from "@/utils/eventbus";
-import { ref, defineComponent, onMounted, computed, onUnmounted } from "vue";
+import { ref, defineComponent, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useStore } from "vuex";
+import { useStore } from "@/store";
 import { loadDependency } from "./common";
 import { ParseTable } from "@/parsers/lr"
 
-import ControlInputPanel from "./control-input-panel/control-input-panel.vue";
+import InputPanel from "./input-panel/input-panel.vue";
 import Automaton from "./display-panel/automaton-panel.vue";
 import ParseTableVue from "./parse-table/parse-table.vue";
+import ParseTree from "./parse-tree/parse-tree.vue";
 
 export default defineComponent({
     components: {
-        ControlInputPanel,
+        InputPanel,
         Automaton,
-        ParseTableVue
+        ParseTableVue,
+        ParseTree
     },
-    setup() {
+    props: { algo: { type: String } },
+    setup(props) {
         const { t, locale } = useI18n({ useScope: "global" });
-        // const store = useStore();
-        const showParseTable = ref(false);
+        const store = useStore();
         const larkLoaded = ref(false);
         const loadingMsg = ref("");
         function updateLoadingMsg(msg: string) {
@@ -41,19 +43,13 @@ export default defineComponent({
             await loadDependency(updateLoadingMsg);
             larkLoaded.value = true;
         });
-
+        const showAutomaton = computed(() => store.state.lr.showAutomaton);
+        const showParseTable = computed(() => store.state.lr.showParseTable);
         const parseTable = ref<ParseTable>();
-        function handleShowParseTable(table: ParseTable) {
-            parseTable.value = table;
-            showParseTable.value = true;
-        }
-        const unsubscribe = [
-            EventBus.subscribe("lr", "ShowParseTable", handleShowParseTable),
-        ];
-        onUnmounted(() => unsubscribe.forEach(fn => fn()));
         return {
             t,
             larkLoaded, loadingMsg,
+            showAutomaton,
             showParseTable, parseTable,
         }
     }

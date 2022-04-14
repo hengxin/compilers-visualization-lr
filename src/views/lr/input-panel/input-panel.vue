@@ -1,47 +1,34 @@
 <template>
     <div class="panel-container">
         <div class="control-panel">
-            <GRadioButtonGroup v-model="algorithm" :options="algos"></GRadioButtonGroup>
-            <GButton @click="nextStep">next</GButton>
-            <GButton @click="parse">Parse{{ algorithm }}</GButton>
+            <template v-if="!started">
+                <GRadioButtonGroup v-model="algorithm" :options="algos"></GRadioButtonGroup>
+                <GButton @click="parse()">Parse{{ algorithm }}</GButton>
+            </template>
+            <template v-else>
+                <GButton @click="reset()">Reset</GButton>
+            </template>
         </div>
         <div class="input-panel" v-if="!started">
             <div class="grammar-input panel-item">
-                <GTextarea
-                    resize="none"
-                    v-model="grammar"
-                    :rows="15"
-                    :placeholder="t('ControlInputPanel.InputGrammarPlaceholder')"
-                    style="font-family: 'Cascadia Mono';"
-                ></GTextarea>
+                <GTextarea resize="none" v-model="grammar" :rows="15"
+                    :placeholder="t('ControlInputPanel.InputGrammarPlaceholder')" style="font-family: 'Cascadia Mono';">
+                </GTextarea>
             </div>
             <div class="text-input panel-item">
-                <GTextarea
-                    resize="none"
-                    v-model="text"
-                    :rows="15"
-                    :placeholder="t('ControlInputPanel.InputTextPlaceholder')"
-                    style="font-family: 'Cascadia Mono';"
-                ></GTextarea>
+                <GTextarea resize="none" v-model="text" :rows="15"
+                    :placeholder="t('ControlInputPanel.InputTextPlaceholder')" style="font-family: 'Cascadia Mono';">
+                </GTextarea>
             </div>
         </div>
         <div class="token-rule-panel" v-if="started">
             <div class="rule-panel panel-item">
-                <RuleLine
-                    class="rule-line"
-                    v-for="(rule, index) in ruleList"
-                    :rule="rule"
-                    :index="index"
-                ></RuleLine>
+                <RuleLine class="rule-line" v-for="(rule, index) in ruleList" :rule="rule" :index="index"></RuleLine>
             </div>
             <div class="token-panel panel-item">
                 <div class="token-line-container">
-                    <TokenLine
-                        class="token-line"
-                        v-for="(tokenLine, key) in tokenLineList"
-                        :token-line="tokenLine"
-                        :lineNo="key + 1"
-                    ></TokenLine>
+                    <TokenLine class="token-line" v-for="(tokenLine, key) in tokenLineList" :token-line="tokenLine"
+                        :lineNo="key + 1"></TokenLine>
                 </div>
             </div>
         </div>
@@ -51,13 +38,16 @@
     </div>
 </template>
 <script lang="ts">
-import { ref, defineComponent, PropType } from "vue";
+import { ref, defineComponent, PropType, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { GRadioButtonGroup, GButton, GTextarea, GArrow } from "@/components";
+import { useRoute, useRouter } from "vue-router";
+import { useStore } from "@/store";
+import { GRadioButtonGroup, GButton, GTextarea, GArrow, GNotification } from "@/components";
 import { ParserType, Token, Rule } from "@/parsers/lr";
 import RuleLine from "./rule-line.vue";
 import TokenLine from "./token-line.vue";
 import { parser, initParser, next } from "../common";
+import examples from "./examples";
 
 export default defineComponent({
     components: {
@@ -68,30 +58,12 @@ export default defineComponent({
         RuleLine,
         TokenLine,
     },
-    setup(props, ctx) {
+    setup() {
         const { t } = useI18n({ useScope: "global" });
-        const grammar = ref(`?start: value
-
-?value: object
-      | array
-      | STRING
-      | NUMBER             -> number
-      | "true"             -> true
-      | "false"            -> false
-      | "null"             -> null
-
-array  : "[" [value ("," value)*] "]"
-object : "{" [pair ("," pair)*] "}"
-pair   : STRING ":" value
-
-STRING : ESCAPED_STRING
-NUMBER : SIGNED_NUMBER
-
-%import common.ESCAPED_STRING
-%import common.SIGNED_NUMBER
-%import common.WS
-
-%ignore WS`);
+        const router = useRouter();
+        const route = useRoute();
+        const store = useStore();
+        const grammar = ref(examples.json);
         const text = ref(`{
     "aaa": [1,2,3,4,5,6,7,8,9],
     "bbb": {
@@ -103,16 +75,30 @@ NUMBER : SIGNED_NUMBER
         const ruleList = ref<Array<Rule>>([]);
         const tokenList = ref<Array<Token>>([]);
         const started = ref(false);
+        if (algos.includes(route.query.a as ParserType)) {
+            algorithm.value = route.query.a as ParserType;
+        }
+        watch(algorithm, (value) => {
+            store.commit("lr/setAlgorithm", value);
+            router.replace({
+                query: { a: store.state.lr.algorithm },
+            });
+        });
         function parse() {
             try {
                 initParser(algorithm.value, grammar.value, text.value);
+                started.value = true;
+                ruleList.value = parser.store.rules;
+                tokenList.value = parser.store.tokens;
+                initTokenTagData();
+                store.commit("lr/setShowAutomaton", true);
             } catch (e) {
-                console.log(e);
+                GNotification({
+                    title: t("ControlInputPanel.InitParserError"),
+                    content: (e as Error).message,
+                    type: "error",
+                });
             }
-            started.value = true;
-            ruleList.value = parser.store.rules;
-            tokenList.value = parser.store.tokens;
-            initTokenTagData();
         }
 
         const tokenLineList = ref<Array<Array<Token>>>([]);
@@ -133,12 +119,17 @@ NUMBER : SIGNED_NUMBER
             }
         }
 
-
-        function nextStep() {
-            next(1);
+        function reset() {
+            grammar.value = "";
+            text.value = "";
+            ruleList.value = [];
+            tokenList.value = [];
+            started.value = false;
+            store.commit("lr/setShowAutomaton", false);
+            store.commit("lr/setShowParseTable", false);
         }
         return {
-            t, parse, nextStep,
+            t, parse, reset,
             grammar, text, algos, algorithm, ruleList, tokenLineList, started
         };
     }
@@ -151,13 +142,14 @@ NUMBER : SIGNED_NUMBER
     border: 2px var(--color-klein-blue) solid;
     border-top: none;
 }
+
 .control-panel {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    position: sticky;
     top: 16px;
 }
+
 .input-panel,
 .token-rule-panel {
     display: flex;
@@ -165,31 +157,38 @@ NUMBER : SIGNED_NUMBER
     width: 100%;
     margin: 8px 0;
 }
+
 .rule-panel,
 .token-panel {
     border: 1px gainsboro solid;
     overflow: auto;
     max-height: 400px;
 }
+
 .token-line-container {
     float: left;
     min-width: 100%;
 }
+
 .panel-item {
     flex: 1 1 0;
     margin-right: 10px;
     min-width: 0;
 }
+
 .panel-item:last-child {
     margin-right: 0;
 }
+
 .rule-line,
 .token-line {
     margin-bottom: 4px;
 }
+
 .token-line:last-child {
     margin-bottom: 0;
 }
+
 .fold-arrow {
     margin: 0 auto;
 }

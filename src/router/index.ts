@@ -6,6 +6,7 @@ const routes: Array<RouteRecordRaw> = [
         path: "/lr",
         name: "lr",
         component: () => import("@/views/lr/index.vue"),
+        props: route => ({ algo: route.query.a }),
     }
 ];
 

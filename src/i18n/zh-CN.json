@@ -4,6 +4,7 @@
     },
     "ControlInputPanel": {
         "InputGrammarPlaceholder": "在此输入文法",
-        "InputTextPlaceholder": "在此输入要解析的文本"
+        "InputTextPlaceholder": "在此输入要解析的文本",
+        "InitParserError": "语法分析器初始化失败，请检查你的输入是否正确。"
     }
 }

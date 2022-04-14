@@ -14,8 +14,8 @@
                 'notification-inner'
             ]"
         >
-            <div class="notification-title">你好</div>
-            <div class="notification-content">bbb</div>
+            <div class="notification-title">{{title}}</div>
+            <div class="notification-content">{{content}}</div>
         </div>
     </div>
 </template>
@@ -75,6 +75,8 @@ export default defineComponent({
 }
 .notification-inner {
     padding: 8px;
+    max-height: 400px;
+    overflow-y: scroll;
 }
 .notification-type-primary {
     background-color: var(--color-primary-light);

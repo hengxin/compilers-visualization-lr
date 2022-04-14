@@ -27,6 +27,10 @@ export default defineComponent({
     props: props,
     setup(props, ctx) {
         const activeRadioIndex = ref<number>(0);
+        const index = props.options.indexOf(props.modelValue);
+        if (index !== -1) {
+            activeRadioIndex.value = index;
+        }
 
         function updateValue(index: number) {
             activeRadioIndex.value = index;
@@ -34,7 +38,7 @@ export default defineComponent({
         }
 
         if (props.options.length > 0) {
-            updateValue(0);
+            updateValue(activeRadioIndex.value);
         }
 
         return {
