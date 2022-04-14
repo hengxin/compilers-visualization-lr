@@ -1,5 +1,14 @@
 <template>
-    <div class="automaton-panel" ref="automatonPanel">
+    <div class="automaton-control-panel">
+        <div>当前操作状态：<span>I{{currentState}}</span></div>
+        <GButton>求闭包</GButton>
+        <GButton>状态转换</GButton>
+        <div>
+            <span>手动模式：</span>
+            <GSwitch v-model="manual"></GSwitch>
+        </div>
+    </div>
+    <div class="automaton-display-panel" ref="displayPanel">
         <div
             :style="{ position: 'relative', height: totalHeight + 'px', width: totalWidth + 'px' }"
         >
@@ -54,6 +63,7 @@
 import { defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
 import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
+import { GButton, GSwitch } from "@/components";
 import { LRItemSet, BfsStepResult, _Symbol } from "@/parsers/lr";
 interface StateItemData {
     state: LRItemSet,
@@ -106,6 +116,8 @@ function generateStateItemData(state: LRItemSet, top: number, left: number, colu
 export default defineComponent({
     components: {
         StateItem,
+        GButton,
+        GSwitch,
     },
     setup() {
         // stateId -> HTMLDivElement
@@ -438,25 +450,25 @@ export default defineComponent({
         }
 
         // 拖拽滚动功能
-        const automatonPanel = ref<HTMLDivElement>();
+        const displayPanel = ref<HTMLDivElement>();
         let mousedown = false;
         let startX = 0, startY = 0;
         let scrollTop = 0, scrollLeft = 0;
         onMounted(() => {
-            automatonPanel.value!.addEventListener("mousedown", (ev) => {
+            displayPanel.value!.addEventListener("mousedown", (ev) => {
                 startX = ev.offsetX;
                 startY = ev.offsetY;
                 mousedown = true;
             });
-            automatonPanel.value!.addEventListener("mouseup", () => {
+            displayPanel.value!.addEventListener("mouseup", () => {
                 mousedown = false;
             });
-            automatonPanel.value!.addEventListener("mousemove", (ev) => {
+            displayPanel.value!.addEventListener("mousemove", (ev) => {
                 if (mousedown) {
                     let offsetX = ev.offsetX - startX;
                     let offsetY = ev.offsetY - startY;
-                    let limitX = automatonPanel.value!.scrollWidth - automatonPanel.value!.offsetWidth;
-                    let limitY = automatonPanel.value!.scrollHeight - automatonPanel.value!.offsetHeight;
+                    let limitX = displayPanel.value!.scrollWidth - displayPanel.value!.offsetWidth;
+                    let limitY = displayPanel.value!.scrollHeight - displayPanel.value!.offsetHeight;
                     scrollTop = scrollTop - offsetY;
                     scrollLeft = scrollLeft - offsetX;
                     if (scrollTop >= limitY) {
@@ -469,26 +481,31 @@ export default defineComponent({
                     } else if (scrollLeft <= 0) {
                         scrollLeft = 0;
                     }
-                    automatonPanel.value!.scrollTop = scrollTop;
-                    automatonPanel.value!.scrollLeft = scrollLeft;
+                    displayPanel.value!.scrollTop = scrollTop;
+                    displayPanel.value!.scrollLeft = scrollLeft;
                     // console.log("SCROLL: ", scrollTop, scrollLeft)
                 }
             });
         });
 
+        const manual = ref(false);
+        const currentState = ref(-1);
+
+
         return {
-            stateItems, lineBlocks, automatonPanel,
+            stateItems, lineBlocks, displayPanel,
             stateUpdate, stateRefs,
             GAP_ARROW, totalHeight, totalWidth,
             handleStateMouseEnter, handleStateMouseLeave,
             handleLineMouseEnter, handleLineMouseLeave,
+            manual, currentState,
         };
     }
 });
 </script>
 
 <style scoped>
-.automaton-panel {
+.automaton-display-panel {
     overflow: auto;
     width: 100%;
     height: 600px;

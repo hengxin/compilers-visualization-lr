@@ -144,7 +144,8 @@ function next(speed: Speed) {
         case 7: // LR1_LALR1 合并相同核心的LR1项
             break;
         case 8: // 计算LR分析表
-            parser.calcParseTable();
+            res = parser.calcParseTable();
+            EventBus.publish("lr", "ShowParseTable", res);
             break;
         case 9: // 
             break;

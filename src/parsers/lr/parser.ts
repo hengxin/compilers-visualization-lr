@@ -671,19 +671,15 @@ class Accept extends Action {
 }
 type ParseTableInner = Array<Map<_Symbol, Array<Action>>>;
 class ParseTable {
-    actionTable: ParseTableInner;
-    gotoTable: ParseTableInner;
+    actionTable: ParseTableInner = [];
+    gotoTable: ParseTableInner = [];
+    actionHeader: Array<_Symbol> = [];
+    gotoHeader: Array<_Symbol> = [];
     conflict: boolean = false;
     private automaton: Automaton;
 
     constructor(automaton: Automaton) {
         this.automaton = automaton;
-        this.actionTable = new Array(automaton.states.length);
-        this.gotoTable = new Array(automaton.states.length);
-        for (let i = 0; i < automaton.states.length; i++) {
-            this.actionTable[i] = new Map();
-            this.gotoTable[i] = new Map();
-        }
     }
 
     toString() {
@@ -780,6 +776,18 @@ class ParseTable {
     }
 
     calc() {
+        PARSER_STORE.symbolMap.forEach((sym) => {
+            if (sym === SYMBOL_START) {
+                return; // continue for-each loop
+            }
+            sym.isTerm ? this.actionHeader.push(sym) : this.gotoHeader.push(sym);
+        });
+        this.actionTable = new Array(this.automaton.states.length);
+        this.gotoTable = new Array(this.automaton.states.length);
+        for (let i = 0; i < this.automaton.states.length; i++) {
+            this.actionTable[i] = new Map();
+            this.gotoTable[i] = new Map();
+        }
         this.automaton.transitions.forEach((stateTrans, stateId) => {
             stateTrans.forEach((target, sym) => {
                 let actionRule = this.automaton.transitionsRule[stateId].get(sym);
@@ -982,8 +990,9 @@ class ControllableLRParser {
     }
 
     calcParseTable() {
-        this.parseTable = new ParseTable(this.automaton);
+        // this.parseTable = new ParseTable(this.automaton);
         this.parseTable.calc();
+        return this.parseTable;
     }
     parseByStep() {
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
@@ -1033,4 +1042,4 @@ class ControllableLRParser {
     }
 }
 
-export { ControllableLRParser, LRItem, LRItemSet, ParserType, BfsStepResult };
+export { ControllableLRParser, LRItem, LRItemSet, ParserType, BfsStepResult, ParseTable, PARSER_STORE };
