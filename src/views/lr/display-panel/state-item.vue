@@ -1,7 +1,7 @@
 <template>
     <div
         class="state-container"
-        :class="[calculating ? 'state-highlight' : '', uncalculated ? 'state-uncalculated' : '']"
+        :class="[active ? 'state-active' : '', done ? 'state-done' : '']"
     >
         <div class="state-id">
             <span>I</span>
@@ -10,7 +10,7 @@
         <div class="state-kernel">
             <LrItemComponent
                 v-for="(lrItem, index) in kernel"
-                :class="(calculating && index === currentItem) ? 'lr-item-calcualting' : ''"
+                :class="(!done && index === currentItem) ? 'lr-item-calcualting' : ''"
                 class="lr-item"
                 :lr-item="lrItem"
             ></LrItemComponent>
@@ -18,7 +18,7 @@
         <div class="state-closure" :key="updateKey">
             <LrItemComponent
                 v-for="(lrItem, index) in closureExceptKernel"
-                :class="(calculating && index === (currentItem - kernel.length)) ? 'lr-item-calcualting' : ''"
+                :class="(!done && index === (currentItem - kernel.length)) ? 'lr-item-calcualting' : ''"
                 class="lr-item closure-item"
                 :lr-item="lrItem"
             ></LrItemComponent>
@@ -30,6 +30,8 @@ import { defineComponent, PropType, ref, onUnmounted } from "vue";
 import { LRItem, LRItemSet } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 import LrItemComponent from "./lr-item.vue";
+import { computed } from "@vue/reactivity";
+import { useLrStore } from "@/stores";
 export default defineComponent({
     props: {
         state: { type: Object as PropType<LRItemSet>, required: true },
@@ -38,19 +40,18 @@ export default defineComponent({
         LrItemComponent,
     },
     setup(props, ctx) {
+        const lrStore = useLrStore();
         const kernel = ref<Array<LRItem>>([]);
         const closureExceptKernel = ref<Array<LRItem>>([]);
-        const uncalculated = ref(true);
+        const active = computed(() => lrStore.stateFlags[props.state.id].active);
+        const done = computed(() => lrStore.stateFlags[props.state.id].appended);
         const currentItem = ref(-1);
-        const calculating = ref(false);
-        const done = ref(false);
         props.state.kernel.forEach((item) => {
             kernel.value.push(item);
         });
         function handleClosureStep(items: Array<LRItem>, update: boolean = true) {
             currentItem.value++;
-            calculating.value = true;
-            uncalculated.value = false;
+            // TODO?
             items.forEach((item) => {
                 closureExceptKernel.value.push(item);
             });
@@ -60,7 +61,7 @@ export default defineComponent({
         }
         const updateKey = ref(0); // 仅用来强制刷新组件
         function handleMergeLookaheads(state: LRItemSet) {
-            calculating.value = false;
+            // calculating.value = false;
             kernel.value = [...state.kernel];
             closureExceptKernel.value = [...state.closure];
             closureExceptKernel.value.splice(0, kernel.value.length);
@@ -73,8 +74,8 @@ export default defineComponent({
             ctx.emit("stateUpdate", props.state.id);
         }
         function handleClosureDone() {
-            calculating.value = false;
-            done.value = true;
+            // calculating.value = false;
+            // done.value = true;
         }
         const unsubscribe = [
             EventBus.subscribe("lr", "State" + props.state.id + "ClosureStep", handleClosureStep),
@@ -83,7 +84,7 @@ export default defineComponent({
             EventBus.subscribe("lr", "State" + props.state.id + "ClosureDone", handleClosureDone),
         ]
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
-        return { kernel, closureExceptKernel, currentItem, calculating, done, uncalculated, updateKey };
+        return { kernel, closureExceptKernel, currentItem, active, done, updateKey };
     }
 });
 
@@ -91,15 +92,14 @@ export default defineComponent({
 </script>
 <style scoped>
 .state-container {
-    border: 3px var(--color-klein-blue) solid;
+    border: 3px var(--color-klein-blue) dashed;
     width: fit-content;
-    /* background-color: rgba(255, 255, 255, 0.8); */
 }
-.state-highlight {
+.state-active {
     border-color: gold;
 }
-.state-uncalculated {
-    border-style: dashed;
+.state-done {
+    border-style: solid;
 }
 .state-id {
     font-weight: bold;

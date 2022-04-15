@@ -79,7 +79,7 @@ export default defineComponent({
             algorithm.value = route.query.a as ParseAlgorithm;
         }
         watch(algorithm, (value) => {
-            // store.commit("lr/SetAlgorithm", value);
+            lrStore.algorithm = value;
             router.replace({
                 query: { a: lrStore.algorithm },
             });
@@ -91,7 +91,8 @@ export default defineComponent({
                 ruleList.value = parser.store.rules;
                 tokenList.value = parser.store.tokens;
                 initTokenTagData();
-                lrStore.SetShowAutomaton(true);
+                lrStore.showControlPanel = true;
+                lrStore.showAutomaton = true;
             } catch (e) {
                 GNotification({
                     title: t("ControlInputPanel.InitParserError"),
@@ -125,8 +126,9 @@ export default defineComponent({
             ruleList.value = [];
             tokenList.value = [];
             started.value = false;
-            lrStore.SetShowAutomaton(false);
-            lrStore.SetShowParseTable(false);
+            lrStore.showControlPanel = false;
+            lrStore.showAutomaton = false;
+            lrStore.showParseTable = false;
         }
         return {
             t, parse, reset,

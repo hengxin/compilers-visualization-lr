@@ -53,7 +53,6 @@ function initParser(algorithm: ParseAlgorithm, grammar: string, text: string) {
     pyodide.runPython(code);
     const _parser = new ControllableLRParser(algorithm, ruleList, tokenList);
     parser = _parser;
-    EventBus.publish("lr", "AutomatonStart", parser.automaton.states[0]);
     return _parser;
 }
 

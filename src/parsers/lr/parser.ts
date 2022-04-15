@@ -414,7 +414,7 @@ class Automaton {
         };
     }
 
-    StateClosure(stateId: number, algo: ParseAlgorithm) {
+    CalcStateClosure(stateId: number, algo: ParseAlgorithm) {
         if (this.states[stateId] === undefined) {
             // throw
         }

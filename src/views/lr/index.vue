@@ -1,7 +1,7 @@
 <template>
     <div v-if="larkLoaded">
         <InputPanel></InputPanel>
-        <!-- <ControlPanel></ControlPanel> -->
+        <ControlPanel v-if="showControlPanel"></ControlPanel>
         <Automaton v-if="showAutomaton"></Automaton>
         <ParseTableVue v-if="showParseTable" :parse-table="parseTable!"></ParseTableVue>
         <ParseTree></ParseTree>
@@ -46,12 +46,14 @@ export default defineComponent({
             await loadDependency(updateLoadingMsg);
             larkLoaded.value = true;
         });
+        const showControlPanel = computed(() => lrStore.showControlPanel);
         const showAutomaton = computed(() => lrStore.showAutomaton);
         const showParseTable = computed(() => lrStore.showParseTable);
         const parseTable = ref<ParseTable>();
         return {
             t,
             larkLoaded, loadingMsg,
+            showControlPanel,
             showAutomaton,
             showParseTable, parseTable,
         }

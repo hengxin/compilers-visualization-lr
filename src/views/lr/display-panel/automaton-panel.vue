@@ -12,6 +12,7 @@
                 class="state-item-container"
                 @mouseenter="handleStateMouseEnter(item[1])"
                 @mouseleave="handleStateMouseLeave()"
+                @click="handleStateClick(item[1])"
             >
                 <StateItem :state="item[1].state" @stateUpdate="stateUpdate"></StateItem>
             </div>
@@ -55,6 +56,8 @@ import { defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
 import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
 import { LRItemSet, AppendStateResult, _Symbol } from "@/parsers/lr";
+import { getParser } from "../common";
+import { useLrStore } from "@/stores";
 interface StateItemData {
     state: LRItemSet,
     // StateItem的位置
@@ -108,6 +111,8 @@ export default defineComponent({
         StateItem,
     },
     setup() {
+        const lrStore = useLrStore();
+
         // stateId -> HTMLDivElement
         const stateRefs: Map<number, HTMLDivElement> = new Map();
         const totalHeight = ref(0);
@@ -115,6 +120,27 @@ export default defineComponent({
         const stateItems = ref<Map<number, StateItemData>>(new Map());
         const lineBlocks = ref<Map<number, LineBlockData>>(new Map());
         const columns: Array<ColumnData> = [];
+        function initStateFlag(stateId: number) {
+            lrStore.stateFlags[stateId] = {
+                active: false,
+                closureDone: false,
+                appended: false,
+            };
+        }
+        function start() {
+            const state = getParser().automaton.states[0];
+            // initStateFlag(state.id);
+            // lrStore.stateFlags[state.id].active = true;
+            stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0));
+            columns.push({
+                stateIds: [state.id],
+                bottom: 0,
+                left: 0,
+                right: 0,
+                linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: [],
+            });
+        }
+        start();
 
         // state内部变化会影响该列下侧和右边列
         function stateUpdate(stateId: number) {
@@ -172,17 +198,8 @@ export default defineComponent({
             });
         }
 
-        function handleStart(state: LRItemSet) {
-            stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0));
-            columns.push({
-                stateIds: [state.id],
-                bottom: 0,
-                left: 0,
-                right: 0,
-                linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: [],
-            });
-        }
         function handleAppendStates(res: AppendStateResult) {
+            lrStore.stateFlags[res.from].appended = true;
             let currentColumnIdx = stateItems.value.get(res.from)!.column;
             let currentColumn = columns[currentColumnIdx];
             let nextColumn: ColumnData = columns[currentColumnIdx + 1];
@@ -206,6 +223,7 @@ export default defineComponent({
                     }
                 } else {
                     // 指向新的State
+                    initStateFlag(target.state.id);
                     stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, columns.length - 1))
                     nextColumn.stateIds.push(target.state.id);
                     toRight.push(target);
@@ -380,7 +398,6 @@ export default defineComponent({
             lineBlock.points = points;
         }
         const unsubscribe = [
-            EventBus.subscribe("lr", "AutomatonStart", handleStart),
             EventBus.subscribe("lr", "AutomatonAppendStates", handleAppendStates),
         ];
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
@@ -436,6 +453,19 @@ export default defineComponent({
             stateItems.value.forEach(item => item.hidden = false);
             lineBlocks.value.forEach(item => item.hidden = false);
         }
+        function handleStateClick(stateItem: StateItemData): void {
+            if (!lrStore.manual) {
+                return;
+            }
+            Object.entries(lrStore.stateFlags).forEach(entry => {
+                if (Number.parseInt(entry[0]) === stateItem.state.id) {
+                    entry[1].active = true;
+                } else {
+                    entry[1].active = false;
+                }
+            });
+            lrStore.currentStateId = stateItem.state.id;
+        }
 
         // 拖拽滚动功能
         const displayPanel = ref<HTMLDivElement>();
@@ -482,6 +512,7 @@ export default defineComponent({
             GAP_ARROW, totalHeight, totalWidth,
             handleStateMouseEnter, handleStateMouseLeave,
             handleLineMouseEnter, handleLineMouseLeave,
+            handleStateClick,
         };
     }
 });

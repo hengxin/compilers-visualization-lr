@@ -1,5 +1,5 @@
 <template>
-    <div class="__g-switch" @click="switchChange()">
+    <div :class="['__g-switch', disabled ? '__g-switch-disabled' : '']" @click="switchChange()">
         <span v-if="activeText">{{ activeText }}</span>
         <span :class="['__g-switch-core', modelValue ? '__g-switch-core-active' : '__g-switch-core-inactive']">
             <div :class="['__g-switch-circle', modelValue ? '__g-switch-circle-active' : '__g-switch-circle-inactive']">
@@ -15,11 +15,15 @@ export default defineComponent({
     props: {
         activeText: { type: String, default: "" },
         inactiveText: { type: String, default: "" },
-        modelValue: { type: Boolean, required: true },
+        modelValue: { type: Boolean },
+        disabled: { type: Boolean, default: false },
     },
     emits: ["update:modelValue", "change"],
     setup(props, ctx) {
         function switchChange() {
+            if (props.disabled) {
+                return;
+            }
             ctx.emit("update:modelValue", !props.modelValue);
             ctx.emit("change", props.modelValue);
         }
@@ -33,6 +37,12 @@ export default defineComponent({
     cursor: pointer;
     align-items: center;
 }
+
+.__g-switch-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .__g-switch-core {
     width: 36px;
     height: 20px;
