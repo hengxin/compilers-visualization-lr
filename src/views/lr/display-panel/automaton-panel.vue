@@ -1,13 +1,4 @@
 <template>
-    <div class="automaton-control-panel">
-        <div>当前操作状态：<span>I{{currentState}}</span></div>
-        <GButton>求闭包</GButton>
-        <GButton>状态转换</GButton>
-        <div>
-            <span>手动模式：</span>
-            <GSwitch v-model="manual" @change="switchMode"></GSwitch>
-        </div>
-    </div>
     <div class="automaton-display-panel" ref="displayPanel">
         <div
             :style="{ position: 'relative', height: totalHeight + 'px', width: totalWidth + 'px' }"
@@ -63,8 +54,7 @@
 import { defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
 import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
-import { GButton, GSwitch } from "@/components";
-import { LRItemSet, BfsStepResult, _Symbol } from "@/parsers/lr";
+import { LRItemSet, AppendStateResult, _Symbol } from "@/parsers/lr";
 interface StateItemData {
     state: LRItemSet,
     // StateItem的位置
@@ -116,8 +106,6 @@ function generateStateItemData(state: LRItemSet, top: number, left: number, colu
 export default defineComponent({
     components: {
         StateItem,
-        GButton,
-        GSwitch,
     },
     setup() {
         // stateId -> HTMLDivElement
@@ -194,7 +182,7 @@ export default defineComponent({
                 linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: [],
             });
         }
-        function handleAppendStates(res: BfsStepResult) {
+        function handleAppendStates(res: AppendStateResult) {
             let currentColumnIdx = stateItems.value.get(res.from)!.column;
             let currentColumn = columns[currentColumnIdx];
             let nextColumn: ColumnData = columns[currentColumnIdx + 1];
@@ -488,18 +476,12 @@ export default defineComponent({
             });
         });
 
-        const manual = ref(false);
-        const currentState = ref(-1);
-        function switchMode(value: boolean) {
-        }
-
         return {
             stateItems, lineBlocks, displayPanel,
             stateUpdate, stateRefs,
             GAP_ARROW, totalHeight, totalWidth,
             handleStateMouseEnter, handleStateMouseLeave,
             handleLineMouseEnter, handleLineMouseLeave,
-            manual, currentState, switchMode,
         };
     }
 });

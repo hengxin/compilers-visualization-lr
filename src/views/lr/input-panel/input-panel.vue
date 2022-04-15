@@ -41,9 +41,9 @@
 import { ref, defineComponent, PropType, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import { useStore } from "@/store";
+import { useLrStore } from "@/stores";
 import { GRadioButtonGroup, GButton, GTextarea, GArrow, GNotification } from "@/components";
-import { ParserType, Token, Rule } from "@/parsers/lr";
+import { ParseAlgorithm, Token, Rule } from "@/parsers/lr";
 import RuleLine from "./rule-line.vue";
 import TokenLine from "./token-line.vue";
 import { parser, initParser, next } from "../common";
@@ -62,7 +62,7 @@ export default defineComponent({
         const { t } = useI18n({ useScope: "global" });
         const router = useRouter();
         const route = useRoute();
-        const store = useStore();
+        const lrStore = useLrStore();
         const grammar = ref(examples.json);
         const text = ref(`{
     "aaa": [1,2,3,4,5,6,7,8,9],
@@ -70,18 +70,18 @@ export default defineComponent({
         "fff": null
     }
 }`);
-        const algos: Array<ParserType> = ["LR0", "LR1", "LR0_LALR1", "LR1_LALR1"];
-        const algorithm = ref<ParserType>("LR0");
+        const algos: Array<ParseAlgorithm> = ["LR0", "LR1", "LR0_LALR1", "LR1_LALR1"];
+        const algorithm = ref<ParseAlgorithm>("LR0");
         const ruleList = ref<Array<Rule>>([]);
         const tokenList = ref<Array<Token>>([]);
         const started = ref(false);
-        if (algos.includes(route.query.a as ParserType)) {
-            algorithm.value = route.query.a as ParserType;
+        if (algos.includes(route.query.a as ParseAlgorithm)) {
+            algorithm.value = route.query.a as ParseAlgorithm;
         }
         watch(algorithm, (value) => {
-            store.commit("lr/setAlgorithm", value);
+            // store.commit("lr/SetAlgorithm", value);
             router.replace({
-                query: { a: store.state.lr.algorithm },
+                query: { a: lrStore.algorithm },
             });
         });
         function parse() {
@@ -91,7 +91,7 @@ export default defineComponent({
                 ruleList.value = parser.store.rules;
                 tokenList.value = parser.store.tokens;
                 initTokenTagData();
-                store.commit("lr/setShowAutomaton", true);
+                lrStore.SetShowAutomaton(true);
             } catch (e) {
                 GNotification({
                     title: t("ControlInputPanel.InitParserError"),
@@ -125,8 +125,8 @@ export default defineComponent({
             ruleList.value = [];
             tokenList.value = [];
             started.value = false;
-            store.commit("lr/setShowAutomaton", false);
-            store.commit("lr/setShowParseTable", false);
+            lrStore.SetShowAutomaton(false);
+            lrStore.SetShowParseTable(false);
         }
         return {
             t, parse, reset,

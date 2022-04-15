@@ -66,10 +66,10 @@ export default defineComponent({
             closureExceptKernel.value.splice(0, kernel.value.length);
             updateKey.value++;
         }
-        function handleClosure(itemSteps: Array<Array<LRItem>>) {
-            itemSteps.forEach((items) => {
-                handleClosureStep(items, false);
-            });
+        function handleClosure(state: LRItemSet) {
+            kernel.value = [...state.kernel];
+            closureExceptKernel.value = [...state.closure];
+            closureExceptKernel.value.splice(0, kernel.value.length);
             ctx.emit("stateUpdate", props.state.id);
         }
         function handleClosureDone() {

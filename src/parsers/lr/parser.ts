@@ -157,6 +157,7 @@ class LRItemSet {
      * 是否为结束状态
      */
     end: boolean = false;
+    appended: boolean = false;
     private searchIndex: number = 0;
 
     constructor(kernel: LRItem[], id: number) {
@@ -212,13 +213,13 @@ class LRItemSet {
         return false;
     }
 
-    calcClosure(algo: Algorithm): Array<Array<LRItem>> {
+    calcClosure(algo: ParseAlgorithm): Array<Array<LRItem>> {
+        if (this.done) {
+            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_CALC_DONE);
+        }
         let steps: Array<Array<LRItem>> = [];
         while (!this.done) {
             let stepRes: Array<LRItem> = [];
-            if (this.done) {
-                throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_CALC_DONE);
-            }
             // 遍历闭包中的每一项[A -> a·Bb]
             let item = this.closure[this.searchIndex];
             let rightSym: _Symbol = item.rule.expansion[item.index];
@@ -354,11 +355,10 @@ class LRItemSet {
 }
 
 type AutomatonState = LRItemSet;
-type Algorithm = "LR0" | "LR1" | "LR1_LALR1" | "LR0_LALR1";
-type ParserType = Algorithm;
+type ParseAlgorithm = "LR0" | "LR1" | "LR1_LALR1" | "LR0_LALR1";
 
 interface StateClosureResult { id: number, closureSteps: Array<Array<LRItem>> }
-interface BfsStepResult { from: number, targets: Array<{ symbol: _Symbol, state: LRItemSet }> }
+interface AppendStateResult { from: number, targets: Array<{ symbol: _Symbol, state: LRItemSet }> }
 
 class Automaton {
     /**
@@ -366,7 +366,7 @@ class Automaton {
      */
     states: AutomatonState[] = [];
     done: boolean = false;
-    readonly type: ParserType;
+    readonly type: ParseAlgorithm;
     /**
      * 状态转移关系表：
      * transitions[i].get(X)表示下标为i的项集Ii，通过符号X转移到了项集Ij。
@@ -383,7 +383,7 @@ class Automaton {
     statePtr: number = 0;
     private spontaneouslyGenerated: boolean = false;
 
-    constructor(type: ParserType) {
+    constructor(type: ParseAlgorithm) {
         this.type = type;
         let startState = new LRItemSet(
             [new LRItem(PARSER_STORE.startRule, 0,
@@ -414,11 +414,26 @@ class Automaton {
         };
     }
 
-    bfsByStep(): BfsStepResult {
-        if (this.statePtr >= this.states.length) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
+    StateClosure(stateId: number, algo: ParseAlgorithm) {
+        if (this.states[stateId] === undefined) {
+            // throw
         }
-        let state = this.states[this.statePtr];
+        this.states[stateId].calcClosure(algo);
+        return this.states[stateId];
+    }
+
+    AppendStates(stateId: number): AppendStateResult {
+        // if (this.statePtr >= this.states.length) {
+        //     throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
+        // }
+        if (this.states[stateId] === undefined) {
+            // throw State not found
+        }
+        let state = this.states[stateId];
+        if (state.appended) {
+            // throw info
+        }
+        state.appended = true;
         let transitionKernelMap = new Map<_Symbol, Array<LRItem>>();
         let transitionRuleMap = new Map<_Symbol, Rule>();
         state.closure.forEach((item) => {
@@ -478,6 +493,14 @@ class Automaton {
         }
         this.states[this.statePtr].mergeLookaheads();
         return this.states[this.statePtr];
+    }
+
+    MergeLookaheads(stateId: number){
+        if (this.states[stateId] === undefined) {
+            // throw
+        }
+        this.states[stateId].mergeLookaheads();
+        return this.states[stateId];
     }
 
     mergeLr1() {
@@ -907,7 +930,7 @@ function first(symbolString: _Symbol[]): Terminal[] {
 }
 
 class ControllableLRParser {
-    readonly algo: Algorithm;
+    readonly algo: ParseAlgorithm;
     automaton: Automaton;
     currentToken: Token;
     parseTable: ParseTable;
@@ -915,7 +938,7 @@ class ControllableLRParser {
     done: boolean = false;
     store = PARSER_STORE;
 
-    constructor(algo: Algorithm, rules: Array<Rule>, tokens: Array<Token>) {
+    constructor(algo: ParseAlgorithm, rules: Array<Rule>, tokens: Array<Token>) {
         this.algo = algo;
         PARSER_STORE.rules = rules;
         PARSER_STORE.tokens = tokens;
@@ -1042,4 +1065,4 @@ class ControllableLRParser {
     }
 }
 
-export { ControllableLRParser, LRItem, LRItemSet, ParserType, BfsStepResult, ParseTable, PARSER_STORE };
+export { ControllableLRParser, LRItem, LRItemSet, ParseAlgorithm, AppendStateResult, ParseTable, PARSER_STORE };

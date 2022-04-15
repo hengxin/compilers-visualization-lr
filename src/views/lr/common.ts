@@ -1,4 +1,4 @@
-import { ControllableLRParser, LRItem, ParserType, Rule, Token } from "@/parsers/lr";
+import { ControllableLRParser, LRItem, ParseAlgorithm, Rule, Token } from "@/parsers/lr";
 import { Pyodide } from "@/utils/pyodide";
 import EventBus from "@/utils/eventbus";
 import loadLark from "@/utils/lark-loader";
@@ -15,7 +15,7 @@ async function loadDependency(callback: (arg: string) => void) {
     }
 }
 
-function initParser(algorithm: ParserType, grammar: string, text: string) {
+function initParser(algorithm: ParseAlgorithm, grammar: string, text: string) {
     const ruleList: Array<Rule> = [];
     const tokenList: Array<Token> = [];
     pyodide.globals.set("grammar", grammar);
@@ -55,6 +55,13 @@ function initParser(algorithm: ParserType, grammar: string, text: string) {
     parser = _parser;
     EventBus.publish("lr", "AutomatonStart", parser.automaton.states[0]);
     return _parser;
+}
+
+function getParser(): ControllableLRParser {
+    if (parser === undefined) {
+        throw new Error("Parser not inited");
+    }
+    return parser;
 }
 
 let stateId = -1;
@@ -120,7 +127,7 @@ function next(speed: Speed) {
             break;
         case 3: // 状态BFS
             // TODO 返回值
-            res = parser.automaton.bfsByStep();
+            // res = parser.automaton.AppendStates();
             if (parser.automaton.done) {
                 if (parser.algo === "LR0_LALR1") {
                     op = 4;
@@ -160,5 +167,5 @@ function next(speed: Speed) {
 }
 
 export {
-    pyodide, parser, loadDependency, initParser, next
+    pyodide, parser, loadDependency, initParser, next, getParser,
 }
