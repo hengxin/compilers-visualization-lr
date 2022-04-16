@@ -104,7 +104,7 @@ class LRItem {
      * 如果this.end()为false，则返回对应的Symbol。
      * 如果this.end()为true，则返回undefined。
      */
-    current(): _Symbol {
+    current(): _Symbol | undefined {
         return this.rule.expansion[this.index];
     }
 
@@ -431,7 +431,20 @@ class Automaton {
         }
         let state = this.states[stateId];
         if (!state.closureDone) {
-            // throw error
+            let closureAvailable = false;
+            // 如果确实计算不出非内核项，那不计算也就无所谓了
+            for (let i = 0; i < state.kernel.length; i++) {
+                let cur = state.kernel[i].current();
+                if (cur === undefined || cur.isTerm) {
+                    continue;
+                }
+                closureAvailable = true;
+            }
+            if (closureAvailable) {
+                // throw error
+            } else {
+                state.closureDone = true;
+            }
         }
         if (state.appended) {
             // throw info
@@ -441,7 +454,7 @@ class Automaton {
         let transitionRuleMap = new Map<_Symbol, Rule>();
         state.closure.forEach((item) => {
             if (!item.end()) {
-                let sym = item.current();
+                let sym = item.current()!;
                 if (!transitionKernelMap.has(sym)) {
                     transitionKernelMap.set(sym, []);
                 }
@@ -574,7 +587,7 @@ class Automaton {
                     // 正常的流程中这里不会进行向前看符号的合并，因此向前看符号一定只有一个。
                     let lookahead = Array.from(item.lookahead)[0];
                     let trans = this.transitions.get(state.id)!;
-                    let target = trans.get(item.current());
+                    let target = trans.get(item.current()!);
                     if (target === undefined) {
                         throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
                     }
