@@ -1,12 +1,15 @@
 <template>
     <div class="control-panel">
+        <template v-if="!automatonDone">
         <!-- 自动机控制面板 -->
             <div>当前操作状态：<span>I{{ currentStateId }}</span></div>
-            <GButton v-show="manual || showCalcClosureButton" @click="CalcClosure()">计算闭包</GButton>
-            <GButton v-show="manual || showAppendStatesButton" @click="AppendStates()">状态转换</GButton>
+            <GButton v-show="showCalcClosureButton" @click="CalcClosure()">计算闭包</GButton>
+            <GButton v-show="showAppendStatesButton" @click="AppendStates()">状态转换</GButton>
             <span>手动模式：</span>
             <GSwitch :model-value="manual" @change="SwitchMode" :disabled="manual"></GSwitch>
-        <template>
+        </template>
+        <template v-if="automatonDone">
+            <GButton v-show="showCalcParseTableButton" @click="CalcParseTable()">计算语法分析表</GButton>
         </template>
     </div>
 </template>
@@ -14,7 +17,7 @@
 import { computed, ref } from "vue";
 import { GButton, GSwitch } from "@/components";
 import { useLrStore } from "@/stores";
-import { getParser } from "../common";
+import { GetParser } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 
 const lrStore = useLrStore();
@@ -25,15 +28,17 @@ function SwitchMode() {
     lrStore.manual = !lrStore.manual;
 }
 
-const parser = getParser();
+const parser = GetParser();
 const currentStateId = computed(() => lrStore.currentStateId);
 const algorithm = computed(() => lrStore.algorithm);
-
-const showCalcClosureButton = computed(() => !lrStore.stateFlags[currentStateId.value].closureDone);
+const automatonDone = ref(false);
+const showCalcClosureButton = computed(() => 
+    manual.value || (!lrStore.stateFlags[currentStateId.value].closureDone && !automatonDone.value));
 const showAppendStatesButton = computed(() => {
     const flags = lrStore.stateFlags[currentStateId.value];
-    return flags.closureDone && !flags.appended;
+    return manual.value || (flags.closureDone && !flags.appended && !automatonDone.value);
 });
+const showCalcParseTableButton = computed(() => !manual.value && automatonDone.value);
 
 function CalcClosure() {
     const state = parser.automaton.CalcStateClosure(currentStateId.value, algorithm.value);
@@ -43,16 +48,62 @@ function CalcClosure() {
     lrStore.stateFlags[currentStateId.value].closureDone = true;
     EventBus.publish("lr", "State" + currentStateId.value + "Closure", state);
 }
+
 function AppendStates() {
     const res = parser.automaton.AppendStates(currentStateId.value);
     EventBus.publish("lr", "AutomatonAppendStates", res);
     if (!manual.value) {
         lrStore.stateFlags[currentStateId.value].active = false;
-        lrStore.currentStateId = currentStateId.value + 1;
-        lrStore.stateFlags[currentStateId.value].active = true;
+        const finded: boolean = FindNextState();
+        if (finded) {
+            lrStore.stateFlags[currentStateId.value].active = true;
+        }
+        else {
+            automatonDone.value = true;
+        }
     }
 }
 
+// 仅在自动模式下使用
+function FindNextState(): boolean {
+    let stateId = currentStateId.value + 1;
+    while (true) {
+        if (stateId >= parser.automaton.states.length) {
+            return false;
+        }
+        let state = parser.automaton.states[stateId];
+        if (state === undefined) {
+            ++stateId;
+            continue;
+        }
+        let closureAvailable = false;
+        let appendAvailable = false;
+        for (let i = 0; i < state.kernel.length; i++) {
+            let cur = state.kernel[i].current();
+            if (cur !== undefined) {
+                appendAvailable = true;
+                if (!cur.isTerm) {
+                    closureAvailable = true;
+                }
+            }
+        }
+        state.closureDone = !closureAvailable;
+        state.appended = !appendAvailable;
+        lrStore.stateFlags[stateId].closureDone = !closureAvailable;
+        lrStore.stateFlags[stateId].appended = !appendAvailable;
+        if (closureAvailable || appendAvailable) {
+            break;
+        }
+        stateId++;
+    }
+    lrStore.currentStateId = stateId;
+    return true;
+}
+
+function CalcParseTable() {
+    parser.parseTable.calc();
+    lrStore.showParseTable = true;
+}
 
 </script>
 <style scoped>

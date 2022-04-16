@@ -14,26 +14,24 @@
         </tr></table>
 </template>
 <script lang="ts">
-import { defineComponent, PropType } from "vue";
-import { ParseTable, PARSER_STORE } from "@/parsers/lr";
+import { defineComponent } from "vue";
+import { GetParser } from "@/parsers/lr";
 export default defineComponent({
-    props: {
-        parseTable: { type: Object as PropType<ParseTable>, required: true },
-    },
-    setup(props) {
+    setup() {
         const data: Array<Array<string>> = [];
-        for (let i = 0; i < props.parseTable.actionTable.length; i++) {
+        const parser = GetParser();
+        for (let i = 0; i < parser.parseTable.actionTable.length; i++) {
             let row: Array<string> = [];
-            props.parseTable.actionHeader.forEach((sym) => {
-                let action = props.parseTable.actionTable[i].get(sym);
+            parser.parseTable.actionHeader.forEach((sym) => {
+                let action = parser.parseTable.actionTable[i].get(sym);
                 if (action === undefined) {
                     row.push("");
                 } else {
                     row.push(action.toString());
                 }
             });
-            props.parseTable.gotoHeader.forEach((sym) => {
-                let action = props.parseTable.gotoTable[i].get(sym);
+            parser.parseTable.gotoHeader.forEach((sym) => {
+                let action = parser.parseTable.gotoTable[i].get(sym);
                 if (action === undefined) {
                     row.push("");
                 } else {
@@ -42,9 +40,9 @@ export default defineComponent({
             });
             data.push(row);
         }
-        const actionHeaderCnt = props.parseTable.actionHeader.length;
-        const gotoHeaderCnt = props.parseTable.gotoHeader.length;
-        const header = [...props.parseTable.actionHeader, ...props.parseTable.gotoHeader];
+        const actionHeaderCnt = parser.parseTable.actionHeader.length;
+        const gotoHeaderCnt = parser.parseTable.gotoHeader.length;
+        const header = [...parser.parseTable.actionHeader, ...parser.parseTable.gotoHeader];
         return { actionHeaderCnt, gotoHeaderCnt, header, data }
     },
 });

@@ -43,10 +43,9 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useLrStore } from "@/stores";
 import { GRadioButtonGroup, GButton, GTextarea, GArrow, GNotification } from "@/components";
-import { ParseAlgorithm, Token, Rule } from "@/parsers/lr";
+import { InitParser, GetParser, ParseAlgorithm, Token, Rule } from "@/parsers/lr";
 import RuleLine from "./rule-line.vue";
 import TokenLine from "./token-line.vue";
-import { parser, initParser, next } from "../common";
 import examples from "./examples";
 
 export default defineComponent({
@@ -86,7 +85,8 @@ export default defineComponent({
         });
         function parse() {
             try {
-                initParser(algorithm.value, grammar.value, text.value);
+                InitParser(algorithm.value, grammar.value, text.value);
+                const parser = GetParser();
                 started.value = true;
                 ruleList.value = parser.store.rules;
                 tokenList.value = parser.store.tokens;

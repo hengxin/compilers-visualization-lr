@@ -55,8 +55,7 @@
 import { defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
 import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
-import { LRItemSet, AppendStateResult, _Symbol } from "@/parsers/lr";
-import { getParser } from "../common";
+import { GetParser, LRItemSet, AppendStateResult, _Symbol } from "@/parsers/lr";
 import { useLrStore } from "@/stores";
 interface StateItemData {
     state: LRItemSet,
@@ -128,7 +127,7 @@ export default defineComponent({
             };
         }
         function start() {
-            const state = getParser().automaton.states[0];
+            const state = GetParser().automaton.states[0];
             // initStateFlag(state.id);
             // lrStore.stateFlags[state.id].active = true;
             stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0));

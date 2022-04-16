@@ -148,7 +148,7 @@ class LRItemSet {
     /**
      * 闭包是否计算完成
      */
-    done: boolean = false;
+    closureDone: boolean = false;
     /**
      * 是否为接受状态
      */
@@ -169,7 +169,7 @@ class LRItemSet {
 
     toString(): string {
         let s = "ItemSet " + this.id.toString() + ": \n";
-        if (!this.done) {
+        if (!this.closureDone) {
             s += "Closure not calculated.";
         } else {
             this.closure.forEach((item) => { s += item.toString() + "\n"; });
@@ -180,7 +180,7 @@ class LRItemSet {
 
     initClosure() {
         this.closure = [];
-        this.done = false;
+        this.closureDone = false;
         this.searchIndex = 0;
         this.kernel.forEach((item) => { this.closure.push(item); });
     }
@@ -214,11 +214,11 @@ class LRItemSet {
     }
 
     calcClosure(algo: ParseAlgorithm): Array<Array<LRItem>> {
-        if (this.done) {
+        if (this.closureDone) {
             throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_CALC_DONE);
         }
         let steps: Array<Array<LRItem>> = [];
-        while (!this.done) {
+        while (!this.closureDone) {
             let stepRes: Array<LRItem> = [];
             // 遍历闭包中的每一项[A -> a·Bb]
             let item = this.closure[this.searchIndex];
@@ -259,7 +259,7 @@ class LRItemSet {
             }
             this.searchIndex++;
             if (this.searchIndex === this.closure.length) {
-                this.done = true;
+                this.closureDone = true;
             }
             steps.push(stepRes);
         }
@@ -371,8 +371,8 @@ class Automaton {
      * 状态转移关系表：
      * transitions[i].get(X)表示下标为i的项集Ii，通过符号X转移到了项集Ij。
      */
-    transitions: Array<Map<_Symbol, number>> = [];
-    transitionsRule: Array<Map<_Symbol, Rule>> = [];
+    transitions: Map<number, Map<_Symbol, number>> = new Map();
+    transitionsRule: Map<number, Map<_Symbol, Rule>> = new Map();
     /**
      * 向前看符号的传播关系：
      * 项集Ii的第k个内核项，会影响若干项集Ij的第m个内核项。
@@ -430,6 +430,9 @@ class Automaton {
             // throw State not found
         }
         let state = this.states[stateId];
+        if (!state.closureDone) {
+            // throw error
+        }
         if (state.appended) {
             // throw info
         }
@@ -456,7 +459,7 @@ class Automaton {
                 }
             }
         });
-        this.transitionsRule.push(transitionRuleMap);
+        this.transitionsRule.set(stateId, transitionRuleMap);
         let stateNum = this.states.length;
         let trans = new Map<_Symbol, number>();
         let targetArr: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
@@ -476,12 +479,12 @@ class Automaton {
             trans.set(sym, target);
             targetArr.push({ symbol: sym, state: this.states[target] });
         });
-        this.transitions.push(trans);
-        this.statePtr++;
-        if (this.statePtr >= this.states.length) {
-            this.done = true;
-        }
-        return { from: this.states[this.statePtr - 1].id, targets: targetArr };
+        this.transitions.set(stateId, trans);
+        // this.statePtr++;
+        // if (this.statePtr >= this.states.length) {
+        //     this.done = true;
+        // }
+        return { from: stateId, targets: targetArr };
     }
 
     mergeLookaheads(): LRItemSet {
@@ -523,14 +526,14 @@ class Automaton {
                     mergeMap.set(this.states[j].id, this.states[i].id);
                     this.states[i].mergeLr1ItemSet(this.states[j]);
                     delete this.states[j];
-                    delete this.transitions[j];
+                    this.transitions.delete(this.states[j].id);
                 }
             }
         }
         // 更新合并后项集的transition
         this.states.forEach((state) => {
             // forEach不会导致state出现undefined，因为被delete的会直接跳过
-            let trans = this.transitions[state.id];
+            let trans = this.transitions.get(state.id)!;
             let entries = trans.entries();
             for (let entry of entries) {
                 let newId = mergeMap.get(entry[1]);
@@ -570,7 +573,7 @@ class Automaton {
                     }
                     // 正常的流程中这里不会进行向前看符号的合并，因此向前看符号一定只有一个。
                     let lookahead = Array.from(item.lookahead)[0];
-                    let trans = this.transitions[state.id];
+                    let trans = this.transitions.get(state.id)!;
                     let target = trans.get(item.current());
                     if (target === undefined) {
                         throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
@@ -811,9 +814,14 @@ class ParseTable {
             this.actionTable[i] = new Map();
             this.gotoTable[i] = new Map();
         }
-        this.automaton.transitions.forEach((stateTrans, stateId) => {
-            stateTrans.forEach((target, sym) => {
-                let actionRule = this.automaton.transitionsRule[stateId].get(sym);
+        this.automaton.states.forEach((state) => {
+            let stateId = state.id
+            let stateTrans = this.automaton.transitions.get(stateId);
+
+        // })
+        // this.automaton.transitions.forEach((stateTrans, stateId) => {
+            stateTrans?.forEach((target, sym) => {
+                let actionRule = this.automaton.transitionsRule.get(stateId)!.get(sym);
                 if (actionRule === undefined) {
                     throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
                 }
@@ -831,7 +839,7 @@ class ParseTable {
              * 但是非内核项中容易存在误导。非内核项的点在最左侧，但是对于[A -> ·]来说（即产生空串），此非内核项的点既在最左侧又在最右侧。
              * 因此，如果该循环只遍历内核项，则可能导致错误。
              */
-            this.automaton.states[stateId].closure.forEach((item) => {
+            state.closure.forEach((item) => {
                 if (item.end()) {
                     if (item.rule.origin === SYMBOL_START) {
                         // LR0: [S′ → S·] ∈ Ii =⇒ action[i, $] ← acc

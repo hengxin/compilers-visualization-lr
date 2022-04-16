@@ -3,7 +3,7 @@
         <InputPanel></InputPanel>
         <ControlPanel v-if="showControlPanel"></ControlPanel>
         <Automaton v-if="showAutomaton"></Automaton>
-        <ParseTableVue v-if="showParseTable" :parse-table="parseTable!"></ParseTableVue>
+        <ParseTableVue v-if="showParseTable"></ParseTableVue>
         <ParseTree></ParseTree>
     </div>
     <div v-else>
@@ -16,8 +16,7 @@
 import { ref, defineComponent, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLrStore } from "@/stores";
-import { loadDependency } from "./common";
-import { ParseTable } from "@/parsers/lr"
+import { LoadDependency } from "@/parsers/lr"
 
 import InputPanel from "./input-panel/input-panel.vue";
 import ControlPanel from "./control-panel/control-panel.vue";
@@ -43,19 +42,18 @@ export default defineComponent({
             loadingMsg.value = msg;
         }
         onMounted(async () => {
-            await loadDependency(updateLoadingMsg);
+            await LoadDependency(updateLoadingMsg);
             larkLoaded.value = true;
         });
         const showControlPanel = computed(() => lrStore.showControlPanel);
         const showAutomaton = computed(() => lrStore.showAutomaton);
         const showParseTable = computed(() => lrStore.showParseTable);
-        const parseTable = ref<ParseTable>();
         return {
             t,
             larkLoaded, loadingMsg,
             showControlPanel,
             showAutomaton,
-            showParseTable, parseTable,
+            showParseTable,
         }
     }
 });
