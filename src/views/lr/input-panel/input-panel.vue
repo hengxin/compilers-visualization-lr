@@ -74,15 +74,15 @@ export default defineComponent({
         const ruleList = ref<Array<Rule>>([]);
         const tokenList = ref<Array<Token>>([]);
         const started = ref(false);
-        if (algos.includes(route.query.a as ParseAlgorithm)) {
-            algorithm.value = route.query.a as ParseAlgorithm;
-        }
         watch(algorithm, (value) => {
             lrStore.algorithm = value;
             router.replace({
                 query: { a: lrStore.algorithm },
             });
         });
+        if (algos.includes(route.query.a as ParseAlgorithm)) {
+            algorithm.value = route.query.a as ParseAlgorithm;
+        }
         function parse() {
             try {
                 InitParser(algorithm.value, grammar.value, text.value);
