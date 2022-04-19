@@ -76,22 +76,7 @@ function FindNextState(): boolean {
             ++stateId;
             continue;
         }
-        let closureAvailable = false;
-        let appendAvailable = false;
-        for (let i = 0; i < state.kernel.length; i++) {
-            let cur = state.kernel[i].current();
-            if (cur !== undefined) {
-                appendAvailable = true;
-                if (!cur.isTerm) {
-                    closureAvailable = true;
-                }
-            }
-        }
-        state.closureDone = !closureAvailable;
-        state.appended = !appendAvailable;
-        lrStore.stateFlags[stateId].closureDone = !closureAvailable;
-        lrStore.stateFlags[stateId].appended = !appendAvailable;
-        if (closureAvailable || appendAvailable) {
+        if (!(state.closureDone && state.appended)) {
             break;
         }
         stateId++;
@@ -116,6 +101,6 @@ function CalcParseTable() {
     background-color: white;
     border: 2px var(--color-klein-blue) solid;
     padding: 8px;
-    z-index: 1000;
+    z-index: 10;
 }
 </style>

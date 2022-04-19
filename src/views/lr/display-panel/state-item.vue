@@ -41,6 +41,8 @@ export default defineComponent({
     },
     setup(props, ctx) {
         const lrStore = useLrStore();
+        lrStore.stateFlags[props.state.id].closureDone = props.state.closureDone;
+        lrStore.stateFlags[props.state.id].appended = props.state.appended;
         const kernel = ref<Array<LRItem>>([]);
         const closureExceptKernel = ref<Array<LRItem>>([]);
         const active = computed(() => lrStore.stateFlags[props.state.id].active);

@@ -69,6 +69,7 @@ export default defineComponent({
     position: fixed;
     right: -400px;
     transition: right 0.5s, top 0.5s;
+    z-index: 999;
 }
 .notification-active {
     right: 16px;

@@ -82,7 +82,6 @@ interface LineBlockData {
 interface ColumnData {
     stateIds: Array<number>,
     bottom: number,
-    left: number,
     right: number,
 
     linesPassByRight: Array<number>,
@@ -103,6 +102,12 @@ function generateStateItemData(state: LRItemSet, top: number, left: number, colu
         state, top, left, column,
         linesIn: [], linesToLeft: [], linesToRight: [], linesToSameColumn: [], linesToSelf: [],
         hidden: false,
+    };
+}
+function GenerateColumnData(stateIds? :Array<number>): ColumnData {
+    return {
+        stateIds: stateIds === undefined ? [] : stateIds, bottom: GAP_MARGIN, right: GAP_MARGIN,
+        linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: []
     };
 }
 export default defineComponent({
@@ -131,12 +136,11 @@ export default defineComponent({
             // initStateFlag(state.id);
             // lrStore.stateFlags[state.id].active = true;
             stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0));
-            columns.push({
-                stateIds: [state.id],
-                bottom: 0,
-                left: 0,
-                right: 0,
-                linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: [],
+            columns.push(GenerateColumnData([state.id]));
+            nextTick(() => {
+                const stateRef = stateRefs.get(0)!;
+                columns[0].right = stateRef.offsetLeft + stateRef.offsetWidth;
+                columns[0].bottom = stateRef.offsetTop + stateRef.offsetHeight;
             });
         }
         start();
@@ -165,6 +169,10 @@ export default defineComponent({
                     stateBottom += affectedStateRef.offsetHeight + GAP_STATE;
                     nextTick(() => {
                         stateItemData.linesIn.forEach((lineId) => drawLine(lineId));
+                        stateItemData.linesToLeft.forEach((lineId) => drawLine(lineId));
+                        stateItemData.linesToRight.forEach((lineId) => drawLine(lineId));
+                        stateItemData.linesToSameColumn.forEach((lineId) => drawLine(lineId));
+                        stateItemData.linesToSelf.forEach((lineId) => drawLine(lineId));
                     });
                 }
                 column.right = Math.max(column.right, stateRight);
@@ -201,44 +209,112 @@ export default defineComponent({
             lrStore.stateFlags[res.from].appended = true;
             let currentColumnIdx = stateItems.value.get(res.from)!.column;
             let currentColumn = columns[currentColumnIdx];
-            let nextColumn: ColumnData = columns[currentColumnIdx + 1];
+            let nextColumnIdx = currentColumnIdx + 1;
+            let nextColumn: ColumnData = columns[nextColumnIdx];
             if (nextColumn === undefined) {
-                nextColumn = { stateIds: [], bottom: GAP_MARGIN, left: GAP_MARGIN, right: GAP_MARGIN, linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: [] };
+                nextColumn = GenerateColumnData();
                 columns.push(nextColumn);
             }
             let toLeft: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
             let toRight: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
             let toThisColumn: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
+            let toSelf: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
+
+            let minTargetColumnIdx = nextColumnIdx;
             res.targets.forEach((target) => {
                 if (stateItems.value.has(target.state.id)) {
                     // 指向已有的State
                     let targetColumnIdx = stateItems.value.get(target.state.id)!.column;
+                    minTargetColumnIdx = Math.min(minTargetColumnIdx, targetColumnIdx);
                     if (targetColumnIdx < currentColumnIdx) {
                         toLeft.push(target);
                     } else if (targetColumnIdx > currentColumnIdx) {
                         toRight.push(target);
                     } else {
-                        toThisColumn.push(target);
+                        if (target.state.id === res.from) {
+                            toSelf.push(target)
+                        } else {
+                            toThisColumn.push(target);
+                        }
                     }
                 } else {
                     // 指向新的State
                     initStateFlag(target.state.id);
-                    stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, columns.length - 1))
+                    stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, nextColumnIdx));
                     nextColumn.stateIds.push(target.state.id);
                     toRight.push(target);
                 }
             });
+
+            // 1. 生成线条的数据，但是先不绘制线条。
+            // 1.1 指向右侧列的线条（TODO，向右但是不是紧按着的列怎么弄？似乎和向左的线条类似）
+            let tempIds: Array<number> = [];
+            for (let i = 0; i < toRight.length; i++) {
+                let lineBlock: LineBlockData = {
+                    id: lineBlocks.value.size, symbol: toRight[i].symbol,
+                    from: res.from, to: toRight[i].state.id,
+                    type: "Right", points: [[0,0]], hidden: false,
+                };
+                lineBlocks.value.set(lineBlock.id, lineBlock);
+                stateItems.value.get(lineBlock.from)!.linesToRight.push(lineBlock.id);
+                stateItems.value.get(lineBlock.to)!.linesIn.push(lineBlock.id);
+                tempIds.push(lineBlock.id);
+            }
+            currentColumn.linesPassByRight.push(...tempIds.reverse());
+            // 1.2 指向左侧列的线条
+            for (let i = 0; i < toLeft.length; i++) {
+                let lineBlock: LineBlockData = {
+                    id: lineBlocks.value.size, symbol: toLeft[i].symbol,
+                    from: res.from, to: toLeft[i].state.id,
+                    type: "Left", points: [[0,0]], hidden: false,
+                };
+                lineBlocks.value.set(lineBlock.id, lineBlock);
+                let from = stateItems.value.get(lineBlock.from)!;
+                let to = stateItems.value.get(lineBlock.to)!;
+                from.linesToLeft.push(lineBlock.id);
+                to.linesIn.push(lineBlock.id);
+                currentColumn.linesPassByRight.push(lineBlock.id);
+                for (let i = from.column; i >= to.column; i--) {
+                    columns[i].linesPassByBottom.push(lineBlock.id);
+                }
+                columns[to.column].linesPassByLeft.push(lineBlock.id);
+            }
+            // 1.3 指向本列的线条
+            tempIds = [];
+            for (let i = 0; i < toThisColumn.length; i++) {
+                let lineBlock: LineBlockData = {
+                    id: lineBlocks.value.size, symbol: toThisColumn[i].symbol,
+                    from: res.from, to: toThisColumn[i].state.id,
+                    type: "SameColumn", points: [[0,0]], hidden: false,
+                };
+                lineBlocks.value.set(lineBlock.id, lineBlock);
+                stateItems.value.get(lineBlock.from)!.linesToSameColumn.push(lineBlock.id);
+                stateItems.value.get(lineBlock.to)!.linesIn.push(lineBlock.id);
+                tempIds.push(lineBlock.id);
+            }
+            currentColumn.linesPassByLeft.push(...tempIds.reverse());
+            // 1.4 指向自己
+            if (toSelf.length !== 0) {
+                let lineBlock: LineBlockData = {
+                    id: lineBlocks.value.size, symbol: toSelf[0].symbol,
+                    from : res.from, to: res.from,
+                    type: "Self", points: [[0,0]], hidden: false,
+                };
+                lineBlocks.value.set(lineBlock.id, lineBlock);
+                stateItems.value.get(lineBlock.from)!.linesToSelf.push(lineBlock.id);
+            }
+
+            // 2. 放置新添加的State的位置
             let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
-                (currentColumn.linesPassByRight.length + toLeft.length + toRight.length);
+                Math.max(currentColumn.linesPassByRight.length, nextColumn.linesPassByLeft.length);
             console.log("Right: ", currentColumn.right, "GapOfColumns: ", gapOfColumns);
-            // let top = 0;
             function setLocation(i: number, bottom: number, right: number) {
                 if (i >= nextColumn.stateIds.length) {
                     totalHeight.value = Math.max(totalHeight.value, bottom);
                     totalWidth.value = Math.max(totalWidth.value, right);
                     nextColumn.right = Math.max(currentColumn.right, right);
                     nextColumn.bottom = bottom;
-                    draw();
+                    ShiftColumns();
                     return;
                 }
                 let stateId = nextColumn.stateIds[i];
@@ -254,82 +330,30 @@ export default defineComponent({
             }
             setLocation(0, -GAP_STATE, 0);
 
-            // draw由setLocation全部执行完后中的nextTick调用
-            function draw() {
-                let ids: Array<number> = [];
-                for (let i = 0; i < toRight.length; i++) {
-                    let lineBlock: LineBlockData = {
-                        id: lineBlocks.value.size,
-                        symbol: toRight[i].symbol,
-                        from: res.from, to: toRight[i].state.id,
-                        type: "Right", points: [],
-                        hidden: false,
-                    };
-                    // currentColumn.linesRight.push(lineBlock.id);
-                    lineBlocks.value.set(lineBlock.id, lineBlock);
-                    let from = stateItems.value.get(res.from)!;
-                    let to = stateItems.value.get(lineBlock.to)!;
-                    from.linesToRight.push(lineBlock.id);
-                    to.linesIn.push(lineBlock.id);
-                    ids.push(lineBlock.id);
+            // 3. 从受影响的最初一列到最后一列，右移
+            function ShiftColumns() {
+                for (let i = minTargetColumnIdx; i < columns.length; i++) {
+                    // 这里可以断言minTargetColumnIdx一定不会小于1，因为下标为0的列仅包含一个初始state，不会有其它state指向它。
+                    let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
+                        Math.max(columns[i - 1].linesPassByRight.length, columns[i].linesPassByLeft.length);
+                    let newLeft = columns[i - 1].right + gapOfColumns;
+                    let shift = newLeft - stateItems.value.get(columns[i].stateIds[0])!.left;
+                    if (shift === 0) {
+                        continue;
+                    }
+                    columns[i].right += shift;
+                    columns[i].stateIds.forEach((stateId) => {
+                        stateItems.value.get(stateId)!.left = newLeft;
+                    });
                 }
-                currentColumn.linesPassByRight.push(...ids.reverse());
-                // ids.forEach((id) => drawLine(id));
-                nextColumn.stateIds.forEach((stateId) => {
-                    let state = stateItems.value.get(stateId)!;
-                    state.linesIn.forEach((lineId) => {
-                        drawLine(lineId);
+                nextTick(() => {
+                    totalWidth.value = Math.max(totalWidth.value, columns[columns.length - 1].right);
+
+                    // 4. 重新画线
+                    lineBlocks.value.forEach((_, id) => {
+                        drawLine(id);
                     })
-                })
-                ////////////////
-                for (let i = 0; i < toLeft.length; i++) {
-                    let lineBlock: LineBlockData = {
-                        id: lineBlocks.value.size,
-                        symbol: toLeft[i].symbol,
-                        from: res.from, to: toLeft[i].state.id,
-                        type: "Left", points: [],
-                        hidden: false,
-                    };
-                    lineBlocks.value.set(lineBlock.id, lineBlock);
-                    let from = stateItems.value.get(lineBlock.from)!;
-                    let to = stateItems.value.get(lineBlock.to)!;
-                    from.linesToLeft.push(lineBlock.id);
-                    to.linesIn.push(lineBlock.id);
-                    currentColumn.linesPassByRight.push(lineBlock.id);
-                    // currentColumn.linesPassByBottom.push(lineBlock.id);
-                    for (let i = from.column; i >= to.column; i--) {
-                        columns[i].linesPassByBottom.push(lineBlock.id);
-                    }
-                    columns[to.column].linesPassByLeft.push(lineBlock.id);
-                    drawLine(lineBlock.id);
-                }
-                ////////////////
-                ids = [];
-                for (let i = 0; i < toThisColumn.length; i++) {
-                    let lineBlock: LineBlockData = {
-                        id: lineBlocks.value.size,
-                        symbol: toThisColumn[i].symbol,
-                        from: res.from, to: toThisColumn[i].state.id,
-                        type: "SameColumn", points: [],
-                        hidden: false,
-                    }
-                    if (lineBlock.from === lineBlock.to) {
-                        lineBlock.type = "Self";
-                    }
-                    lineBlocks.value.set(lineBlock.id, lineBlock);
-                    let from = stateItems.value.get(lineBlock.from)!;
-                    let to = stateItems.value.get(lineBlock.to)!;
-                    if (lineBlock.type === "Self") {
-                        from.linesToSelf.push(lineBlock.id);
-                        drawLine(lineBlock.id);
-                    } else {
-                        from.linesToSameColumn.push(lineBlock.id);
-                        to.linesIn.push(lineBlock.id);
-                        ids.push(lineBlock.id);
-                    }
-                }
-                currentColumn.linesPassByLeft.push(...ids.reverse());
-                ids.forEach((id) => drawLine(id));
+                });
             }
         }
         // 画线
@@ -526,11 +550,11 @@ export default defineComponent({
     user-select: none;
     position: relative;
     font-size: 12px;
-    padding: 32px;
+    padding: 32px 50% 300px 32px;
 }
 .state-item-container {
     animation: 0.5s fade-in;
-    z-index: 100;
+    z-index: 3;
 }
 @keyframes fade-in {
     from {
@@ -549,7 +573,7 @@ svg {
     stroke-linejoin: round;
     fill: none;
     animation: 0.5s line-move;
-    z-index: 10;
+    z-index: 1;
 }
 @keyframes line-move {
     from {
@@ -568,7 +592,7 @@ svg {
 .line-text {
     transform: translateY(-3px);
     font-weight: bold;
-    z-index: 50;
+    z-index: 2;
 }
 .line-text-shift {
     /* transform: translateX(-100%); */

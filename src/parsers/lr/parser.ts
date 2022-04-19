@@ -380,7 +380,7 @@ class Automaton {
     effects: Array<Array<Array<[number, number]>>> = [];
     propagated: boolean = false;
 
-    statePtr: number = 0;
+    // statePtr: number = 0;
     private spontaneouslyGenerated: boolean = false;
 
     constructor(type: ParseAlgorithm) {
@@ -402,18 +402,6 @@ class Automaton {
         return s;
     }
 
-    currentStateClosure(): StateClosureResult {
-        if (this.statePtr >= this.states.length) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
-        }
-        return {
-            id: this.states[this.statePtr].id,
-            closureSteps: this.states[this.statePtr].calcClosure(
-                this.type === "LR0" || this.type === "LR0_LALR1" ? "LR0" : "LR1"
-            )
-        };
-    }
-
     CalcStateClosure(stateId: number, algo: ParseAlgorithm) {
         if (this.states[stateId] === undefined) {
             // throw
@@ -423,9 +411,6 @@ class Automaton {
     }
 
     AppendStates(stateId: number): AppendStateResult {
-        // if (this.statePtr >= this.states.length) {
-        //     throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
-        // }
         if (this.states[stateId] === undefined) {
             // throw State not found
         }
@@ -487,7 +472,22 @@ class Automaton {
             }
             if (target === -1) {
                 target = this.states.length;
-                this.states.push(new LRItemSet(kernel, target));
+                let newState = new LRItemSet(kernel, target);
+                // 生成新项集的同时也直接算出是否需要计算闭包和GOTO操作
+                let closureAvailable = false;
+                let appendAvailable = false;
+                for (let i = 0; i < newState.kernel.length; i++) {
+                    let cur = newState.kernel[i].current();
+                    if (cur !== undefined) {
+                        appendAvailable = true;
+                        if (!cur.isTerm) {
+                            closureAvailable = true;
+                        }
+                    }
+                }
+                newState.closureDone = !closureAvailable;
+                newState.appended = !appendAvailable;
+                this.states.push(newState);
             }
             trans.set(sym, target);
             targetArr.push({ symbol: sym, state: this.states[target] });
@@ -498,17 +498,6 @@ class Automaton {
         //     this.done = true;
         // }
         return { from: stateId, targets: targetArr };
-    }
-
-    mergeLookaheads(): LRItemSet {
-        if (this.statePtr >= this.states.length) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_INDEX_OUT_OF_RANGE);
-        }
-        if (this.type !== "LR1" && this.type !== "LR1_LALR1") {
-            throw new ParserError(PARSER_EXCEPTION_MSG.INVALID_OPERATION);
-        }
-        this.states[this.statePtr].mergeLookaheads();
-        return this.states[this.statePtr];
     }
 
     MergeLookaheads(stateId: number){
