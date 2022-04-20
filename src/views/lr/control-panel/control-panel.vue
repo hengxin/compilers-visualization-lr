@@ -1,6 +1,6 @@
 <template>
     <div class="control-panel">
-        <template v-if="!automatonDone">
+        <template v-if="automatonStatus === AutomatonStatus.Calculate">
         <!-- 自动机控制面板 -->
             <div>当前操作状态：<span>I{{ currentStateId }}</span></div>
             <GButton v-show="showCalcClosureButton" @click="CalcClosure()">计算闭包</GButton>
@@ -8,7 +8,10 @@
             <span>手动模式：</span>
             <GSwitch :model-value="manual" @change="SwitchMode" :disabled="manual"></GSwitch>
         </template>
-        <template v-if="automatonDone">
+        <template v-if="automatonStatus === AutomatonStatus.Merge">
+            <GButton @click="MergeLr1States()">合并相同核心的LR1项</GButton>
+        </template>
+        <template v-if="automatonStatus === AutomatonStatus.Done">
             <GButton v-show="showCalcParseTableButton" @click="CalcParseTable()">计算语法分析表</GButton>
         </template>
     </div>
@@ -31,14 +34,19 @@ function SwitchMode() {
 const parser = GetParser();
 const currentStateId = computed(() => lrStore.currentStateId);
 const algorithm = computed(() => lrStore.algorithm);
-const automatonDone = ref(false);
+
+enum AutomatonStatus {
+    Calculate, Merge, Done
+}
+const automatonStatus = ref(AutomatonStatus.Calculate);
 const showCalcClosureButton = computed(() => 
-    manual.value || (!lrStore.stateFlags[currentStateId.value].closureDone && !automatonDone.value));
+    manual.value || (!lrStore.stateFlags[currentStateId.value].closureDone && automatonStatus.value === AutomatonStatus.Calculate));
 const showAppendStatesButton = computed(() => {
     const flags = lrStore.stateFlags[currentStateId.value];
-    return manual.value || (flags.closureDone && !flags.appended && !automatonDone.value);
+    return manual.value || (flags.closureDone && !flags.appended && automatonStatus.value === AutomatonStatus.Calculate);
 });
-const showCalcParseTableButton = computed(() => !manual.value && automatonDone.value);
+// const showMergeLr1StatesButton = computed(() => algorithm.value === "LR1_LALR1" && (manual.value || automatonStatus.value === AutomatonStatus.Merge));
+const showCalcParseTableButton = computed(() => !manual.value && automatonStatus.value === AutomatonStatus.Done);
 
 function CalcClosure() {
     const state = parser.automaton.CalcStateClosure(currentStateId.value, algorithm.value);
@@ -59,7 +67,11 @@ function AppendStates() {
             lrStore.stateFlags[currentStateId.value].active = true;
         }
         else {
-            automatonDone.value = true;
+            if (algorithm.value === "LR0" || algorithm.value === "LR1") {
+                automatonStatus.value = AutomatonStatus.Done;
+            } else {
+                automatonStatus.value = AutomatonStatus.Merge;
+            }
         }
     }
 }
@@ -83,6 +95,12 @@ function FindNextState(): boolean {
     }
     lrStore.currentStateId = stateId;
     return true;
+}
+
+function MergeLr1States() {
+    const res = parser.automaton.mergeLr1();
+    EventBus.publish("lr", "AutomatonMergeLr1States", res);
+    automatonStatus.value = AutomatonStatus.Done;
 }
 
 function CalcParseTable() {

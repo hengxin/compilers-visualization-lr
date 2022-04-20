@@ -2,12 +2,22 @@
     <div
         class="state-container"
         :class="[active ? 'state-active' : '', done ? 'state-done' : '']"
+        ref="stateContainerRef"
     >
         <div class="state-id">
             <span>I</span>
             <sub class="state-id-sub">{{ state.id }}</sub>
+            <template v-if="mergeFromList.length !== 0">
+                <span style="font-style: normal;">&nbsp;(</span>
+                <template v-for="(id, index) in mergeFromList">
+                    <span>I</span>
+                    <sub class="state-id-sub">{{id}}</sub>
+                    <span v-if="index !== mergeFromList.length - 1">,</span>
+                </template>
+                <span style="font-style: normal;">)</span>
+            </template>
         </div>
-        <div class="state-kernel">
+        <div class="state-kernel" :key="updateStateKey">
             <LrItemComponent
                 v-for="(lrItem, index) in kernel"
                 :class="(!done && index === currentItem) ? 'lr-item-calcualting' : ''"
@@ -15,11 +25,11 @@
                 :lr-item="lrItem"
             ></LrItemComponent>
         </div>
-        <div class="state-closure" :key="updateKey">
+        <div class="state-closure" :key="updateClosureKey + updateStateKey">
             <LrItemComponent
                 v-for="(lrItem, index) in closureExceptKernel"
                 :class="(!done && index === (currentItem - kernel.length)) ? 'lr-item-calcualting' : ''"
-                class="lr-item closure-item"
+                class="lr-item"
                 :lr-item="lrItem"
             ></LrItemComponent>
         </div>
@@ -43,6 +53,7 @@ export default defineComponent({
         const lrStore = useLrStore();
         lrStore.stateFlags[props.state.id].closureDone = props.state.closureDone;
         lrStore.stateFlags[props.state.id].appended = props.state.appended;
+        const stateContainerRef = ref<HTMLDivElement>();
         const kernel = ref<Array<LRItem>>([]);
         const closureExceptKernel = ref<Array<LRItem>>([]);
         const active = computed(() => lrStore.stateFlags[props.state.id].active);
@@ -61,13 +72,13 @@ export default defineComponent({
                 ctx.emit("stateUpdate", props.state.id);
             }
         }
-        const updateKey = ref(0); // 仅用来强制刷新组件
+        const updateClosureKey = ref(0); // 仅用来强制刷新组件
         function handleMergeLookaheads(state: LRItemSet) {
             // calculating.value = false;
             kernel.value = [...state.kernel];
             closureExceptKernel.value = [...state.closure];
             closureExceptKernel.value.splice(0, kernel.value.length);
-            updateKey.value++;
+            updateClosureKey.value++;
         }
         function handleClosure(state: LRItemSet) {
             kernel.value = [...state.kernel];
@@ -75,18 +86,27 @@ export default defineComponent({
             closureExceptKernel.value.splice(0, kernel.value.length);
             ctx.emit("stateUpdate", props.state.id);
         }
-        function handleClosureDone() {
-            // calculating.value = false;
-            // done.value = true;
+        const updateStateKey = ref(0);
+        const mergeFromList = ref<Array<number>>([]);
+        function handleMergeLr1(from: number) {
+            mergeFromList.value.push(from);
+            updateStateKey.value++;
+            stateContainerRef.value?.classList.add("state-merged");
         }
         const unsubscribe = [
             EventBus.subscribe("lr", "State" + props.state.id + "ClosureStep", handleClosureStep),
             EventBus.subscribe("lr", "State" + props.state.id + "MergeLookaheads", handleMergeLookaheads),
             EventBus.subscribe("lr", "State" + props.state.id + "Closure", handleClosure),
-            EventBus.subscribe("lr", "State" + props.state.id + "ClosureDone", handleClosureDone),
+            EventBus.subscribe("lr", "State" + props.state.id + "MergeLr1", handleMergeLr1),
         ]
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
-        return { kernel, closureExceptKernel, currentItem, active, done, updateKey };
+        return {
+            stateContainerRef,
+            kernel, closureExceptKernel, currentItem,
+            active, done,
+            updateClosureKey, updateStateKey,
+            mergeFromList,
+        };
     }
 });
 
@@ -96,6 +116,9 @@ export default defineComponent({
 .state-container {
     border: 3px var(--color-klein-blue) dashed;
     width: fit-content;
+}
+.state-merged {
+    animation: 0.8s twinkle;
 }
 .state-active {
     border-color: gold;
@@ -122,8 +145,6 @@ export default defineComponent({
 }
 .lr-item {
     position: relative;
-}
-.closure-item {
     animation: 0.5s slide-in;
 }
 .lr-item-calcualting::before {
@@ -139,6 +160,24 @@ export default defineComponent({
     }
     to {
         transform: translateX(0);
+    }
+}
+
+@keyframes twinkle {
+    0% {
+        border-color: var(--color-klein-blue);
+    }
+    25% {
+        border-color: gold;
+    }
+    50% {
+        border-color: var(--color-klein-blue);
+    }
+    75% {
+        border-color: gold;
+    }
+    100% {
+        border-color: var(--color-klein-blue);
     }
 }
 </style>

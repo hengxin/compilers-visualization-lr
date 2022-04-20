@@ -133,6 +133,7 @@ class LRItem {
     }
 }
 
+type ClosureAlgorithm = "LR0" | "LR1";
 /**
  * 项集
  * 是若干项构成的集合。句柄识别自动机的一个状态可以表示为一个项集。
@@ -213,7 +214,7 @@ class LRItemSet {
         return false;
     }
 
-    calcClosure(algo: ParseAlgorithm): Array<Array<LRItem>> {
+    calcClosure(algo: ClosureAlgorithm): Array<Array<LRItem>> {
         if (this.closureDone) {
             throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_CALC_DONE);
         }
@@ -359,6 +360,10 @@ type ParseAlgorithm = "LR0" | "LR1" | "LR1_LALR1" | "LR0_LALR1";
 
 interface StateClosureResult { id: number, closureSteps: Array<Array<LRItem>> }
 interface AppendStateResult { from: number, targets: Array<{ symbol: _Symbol, state: LRItemSet }> }
+interface MergeLr1StatesResult {
+    mergeMap: Map<number, number>,
+    transitionChanges: Map<number, Array<{symbol: _Symbol, from: number, to: number}>>,
+}
 
 class Automaton {
     /**
@@ -406,7 +411,11 @@ class Automaton {
         if (this.states[stateId] === undefined) {
             // throw
         }
-        this.states[stateId].calcClosure(algo);
+        if (algo === "LR0" || algo === "LR0_LALR1") {
+            this.states[stateId].calcClosure("LR0");
+        } else {
+            this.states[stateId].calcClosure("LR1");
+        }
         return this.states[stateId];
     }
 
@@ -508,7 +517,7 @@ class Automaton {
         return this.states[stateId];
     }
 
-    mergeLr1() {
+    mergeLr1(): MergeLr1StatesResult {
         if (this.type !== "LR1_LALR1") {
             throw new ParserError(PARSER_EXCEPTION_MSG.INVALID_OPERATION);
         }
@@ -527,24 +536,34 @@ class Automaton {
                     // 合并LR1项集，记录合并位置，并删除被合并的项集。
                     mergeMap.set(this.states[j].id, this.states[i].id);
                     this.states[i].mergeLr1ItemSet(this.states[j]);
-                    delete this.states[j];
                     this.transitions.delete(this.states[j].id);
+                    delete this.states[j];
                 }
             }
         }
+        const transitionChanges: Map<number,
+            Array<{symbol: _Symbol, from: number, to: number}>> = new Map();
         // 更新合并后项集的transition
         this.states.forEach((state) => {
             // forEach不会导致state出现undefined，因为被delete的会直接跳过
-            let trans = this.transitions.get(state.id)!;
+            let trans = this.transitions.get(state.id);
+            if (trans === undefined) {
+                return // continue for-each loop
+            }
             let entries = trans.entries();
+            let changes = [];
             for (let entry of entries) {
                 let newId = mergeMap.get(entry[1]);
                 if (newId !== undefined) {
                     trans.set(entry[0], newId);
+                    changes.push({ symbol: entry[0], from: entry[1], to: newId });
                 }
             }
+            if (changes.length !== 0) {
+                transitionChanges.set(state.id, changes);
+            }
         });
-        return mergeMap;
+        return { mergeMap, transitionChanges };
     }
 
     /**
@@ -1075,4 +1094,9 @@ class ControllableLRParser {
     }
 }
 
-export { ControllableLRParser, LRItem, LRItemSet, ParseAlgorithm, AppendStateResult, ParseTable, PARSER_STORE };
+export {
+    ControllableLRParser, LRItem, LRItemSet,
+    type ParseAlgorithm, type AppendStateResult,
+    type MergeLr1StatesResult,
+    ParseTable, PARSER_STORE
+};

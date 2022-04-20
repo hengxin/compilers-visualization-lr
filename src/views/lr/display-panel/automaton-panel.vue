@@ -4,22 +4,22 @@
             :style="{ position: 'relative', height: totalHeight + 'px', width: totalWidth + 'px' }"
         >
             <div
-                v-for="(item, key) in stateItems"
-                :key="key"
+                v-for="item in stateItems"
+                :key="item[0]"
                 :ref="(el) => { stateRefs.set(item[1].state.id, el as HTMLDivElement); }"
                 :style="{ position: 'absolute', top: item[1].top + 'px', left: item[1].left + 'px' }"
-                :class="item[1].hidden ? 'hidden' : ''"
+                :class="[item[1].hidden ? 'hidden' : '', item[1].merged ? 'merged' : '']"
                 class="state-item-container"
                 @mouseenter="handleStateMouseEnter(item[1])"
-                @mouseleave="handleStateMouseLeave()"
+                @mouseleave="handleStateMouseLeave(item[1])"
                 @click="handleStateClick(item[1])"
             >
                 <StateItem :state="item[1].state" @stateUpdate="stateUpdate"></StateItem>
             </div>
             <svg style="position: absolute;top: 0;width: 100%; height: 100%;">
                 <g
-                    v-for="(item, key) in lineBlocks"
-                    :key="key"
+                    v-for="item in lineBlocks"
+                    :key="item[0]"
                     :class="item[1].hidden ? 'hidden' : ''"
                     @mouseenter="handleLineMouseEnter(item[1])"
                     @mouseleave="handleLineMouseLeave()"
@@ -55,7 +55,7 @@
 import { defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
 import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
-import { GetParser, LRItemSet, AppendStateResult, _Symbol } from "@/parsers/lr";
+import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult } from "@/parsers/lr";
 import { useLrStore } from "@/stores";
 interface StateItemData {
     state: LRItemSet,
@@ -69,13 +69,15 @@ interface StateItemData {
     linesToSameColumn: Array<number>,
     linesToSelf: Array<number>
     hidden: boolean,
+    merged: boolean,
 }
+type LineBlockType = "Right" | "Left" | "Self" | "SameColumn";
 interface LineBlockData {
     id: number,
     symbol: _Symbol,
     from: number,
     to: number,
-    type: "Right" | "Left" | "Self" | "SameColumn",
+    type: LineBlockType,
     points: Array<[number, number]>,
     hidden: boolean,
 }
@@ -101,13 +103,22 @@ function generateStateItemData(state: LRItemSet, top: number, left: number, colu
     return {
         state, top, left, column,
         linesIn: [], linesToLeft: [], linesToRight: [], linesToSameColumn: [], linesToSelf: [],
-        hidden: false,
+        hidden: false, merged: false,
     };
 }
 function GenerateColumnData(stateIds? :Array<number>): ColumnData {
     return {
         stateIds: stateIds === undefined ? [] : stateIds, bottom: GAP_MARGIN, right: GAP_MARGIN,
         linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: []
+    };
+}
+let lineBlockIdGenerator = -1;
+function generateLineBlockData(symbol: _Symbol, from: number, to: number, type: LineBlockType): LineBlockData {
+    ++lineBlockIdGenerator;
+    return {
+        id: lineBlockIdGenerator,
+        symbol, from, to, type,
+        points: [[0,0]], hidden: false
     };
 }
 export default defineComponent({
@@ -250,11 +261,7 @@ export default defineComponent({
             // 1.1 指向右侧列的线条（TODO，向右但是不是紧按着的列怎么弄？似乎和向左的线条类似）
             let tempIds: Array<number> = [];
             for (let i = 0; i < toRight.length; i++) {
-                let lineBlock: LineBlockData = {
-                    id: lineBlocks.value.size, symbol: toRight[i].symbol,
-                    from: res.from, to: toRight[i].state.id,
-                    type: "Right", points: [[0,0]], hidden: false,
-                };
+                let lineBlock = generateLineBlockData(toRight[i].symbol, res.from, toRight[i].state.id, "Right");
                 lineBlocks.value.set(lineBlock.id, lineBlock);
                 stateItems.value.get(lineBlock.from)!.linesToRight.push(lineBlock.id);
                 stateItems.value.get(lineBlock.to)!.linesIn.push(lineBlock.id);
@@ -263,11 +270,7 @@ export default defineComponent({
             currentColumn.linesPassByRight.push(...tempIds.reverse());
             // 1.2 指向左侧列的线条
             for (let i = 0; i < toLeft.length; i++) {
-                let lineBlock: LineBlockData = {
-                    id: lineBlocks.value.size, symbol: toLeft[i].symbol,
-                    from: res.from, to: toLeft[i].state.id,
-                    type: "Left", points: [[0,0]], hidden: false,
-                };
+                let lineBlock = generateLineBlockData(toLeft[i].symbol, res.from, toLeft[i].state.id, "Left");
                 lineBlocks.value.set(lineBlock.id, lineBlock);
                 let from = stateItems.value.get(lineBlock.from)!;
                 let to = stateItems.value.get(lineBlock.to)!;
@@ -282,11 +285,7 @@ export default defineComponent({
             // 1.3 指向本列的线条
             tempIds = [];
             for (let i = 0; i < toThisColumn.length; i++) {
-                let lineBlock: LineBlockData = {
-                    id: lineBlocks.value.size, symbol: toThisColumn[i].symbol,
-                    from: res.from, to: toThisColumn[i].state.id,
-                    type: "SameColumn", points: [[0,0]], hidden: false,
-                };
+                let lineBlock = generateLineBlockData(toThisColumn[i].symbol, res.from, toThisColumn[i].state.id, "SameColumn");
                 lineBlocks.value.set(lineBlock.id, lineBlock);
                 stateItems.value.get(lineBlock.from)!.linesToSameColumn.push(lineBlock.id);
                 stateItems.value.get(lineBlock.to)!.linesIn.push(lineBlock.id);
@@ -295,11 +294,7 @@ export default defineComponent({
             currentColumn.linesPassByLeft.push(...tempIds.reverse());
             // 1.4 指向自己
             if (toSelf.length !== 0) {
-                let lineBlock: LineBlockData = {
-                    id: lineBlocks.value.size, symbol: toSelf[0].symbol,
-                    from : res.from, to: res.from,
-                    type: "Self", points: [[0,0]], hidden: false,
-                };
+                let lineBlock = generateLineBlockData(toSelf[0].symbol, res.from, res.from, "Self");
                 lineBlocks.value.set(lineBlock.id, lineBlock);
                 stateItems.value.get(lineBlock.from)!.linesToSelf.push(lineBlock.id);
             }
@@ -420,12 +415,92 @@ export default defineComponent({
             }
             lineBlock.points = points;
         }
+
+        function deleteLine(lineBlockId: number) {
+            const lineBlock = lineBlocks.value.get(lineBlockId)!;
+            const from = stateItems.value.get(lineBlock.from)!;
+            const to = stateItems.value.get(lineBlock.to)!;
+            const fromColumn = columns[from.column];
+            const toColumn = columns[to.column];
+            if (lineBlock.type === "Left") {
+                fromColumn.linesPassByRight.splice(fromColumn.linesPassByRight.indexOf(lineBlockId), 1);
+                toColumn.linesPassByLeft.splice(toColumn.linesPassByLeft.indexOf(lineBlockId), 1);
+                for (let i = to.column; i <= from.column; i++) {
+                    const c = columns[i];
+                    c.linesPassByBottom.splice(c.linesPassByBottom.indexOf(lineBlockId), 1);
+                }
+                from.linesToLeft.splice(from.linesToLeft.indexOf(lineBlockId), 1);
+                to.linesIn.splice(to.linesIn.indexOf(lineBlockId), 1);
+            } else if (lineBlock.type === "Right") {
+                fromColumn.linesPassByRight.splice(fromColumn.linesPassByRight.indexOf(lineBlockId), 1);
+                from.linesToRight.splice(from.linesToRight.indexOf(lineBlockId), 1);
+                to.linesIn.splice(to.linesIn.indexOf(lineBlockId), 1);
+            } else if (lineBlock.type === "SameColumn") {
+                fromColumn.linesPassByLeft.splice(fromColumn.linesPassByLeft.indexOf(lineBlockId), 1);
+                from.linesToSameColumn.splice(from.linesToSameColumn.indexOf(lineBlockId), 1);
+                to.linesIn.splice(to.linesIn.indexOf(lineBlockId), 1);
+            } else {
+                from.linesToSelf.splice(from.linesToSelf.indexOf(lineBlockId), 1);
+            }
+            lineBlocks.value.delete(lineBlockId);
+        }
+
+        function handleMergeLr1States(res: MergeLr1StatesResult) {
+            res.mergeMap.forEach((target, from) => {
+                const fromItem =  stateItems.value.get(from)!;
+                fromItem.linesIn.forEach(lineId => deleteLine(lineId));
+                fromItem.linesToLeft.forEach(lineId => deleteLine(lineId));
+                fromItem.linesToRight.forEach(lineId => deleteLine(lineId));
+                fromItem.linesToSameColumn.forEach(lineId => deleteLine(lineId));
+                fromItem.linesToSelf.forEach(lineId => deleteLine(lineId));
+                fromItem.merged = true;
+            });
+            res.mergeMap.forEach((target, from) => {
+                // stateItems.value.delete(from);
+            });
+            res.transitionChanges.forEach((changeList, stateId) => {
+                changeList.forEach((change) => {
+                    let from = stateItems.value.get(stateId)!;
+                    let to = stateItems.value.get(change.to)!;
+                    const lineBlock = generateLineBlockData(change.symbol, stateId, change.to,
+                        from.column === to.column ? "SameColumn" : (from.column < to.column ? "Right" : "Left")
+                    );
+                    lineBlocks.value.set(lineBlock.id, lineBlock);
+                    if (lineBlock.type === "Left") {
+                        from.linesToLeft.push(lineBlock.id);
+                        to.linesIn.push(lineBlock.id);
+                        columns[from.column].linesPassByRight.push(lineBlock.id);
+                        columns[to.column].linesPassByLeft.push(lineBlock.id);
+                        for (let i = to.column; i <= from.column; i++) {
+                            columns[i].linesPassByBottom.push(lineBlock.id);
+                        }
+                    } else if (lineBlock.type === "Right") {
+                        from.linesToRight.push(lineBlock.id);
+                        to.linesIn.push(lineBlock.id);
+                        columns[from.column].linesPassByRight.push(lineBlock.id);
+                    } else {
+                        from.linesToSameColumn.push(lineBlock.id);
+                        to.linesIn.push(lineBlock.id);
+                        columns[from.column].linesPassByLeft.push(lineBlock.id);
+                    }
+                    drawLine(lineBlock.id);
+                });
+            });
+            res.mergeMap.forEach((target, from) => {
+                EventBus.publish("lr", "State" + target + "MergeLr1", from);
+            });
+        }
+
         const unsubscribe = [
             EventBus.subscribe("lr", "AutomatonAppendStates", handleAppendStates),
+            EventBus.subscribe("lr", "AutomatonMergeLr1States", handleMergeLr1States),
         ];
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
 
         function handleStateMouseEnter(stateItem: StateItemData) {
+            if (stateItem.merged) {
+                return;
+            }
             stateItems.value.forEach(item => item.hidden = true);
             lineBlocks.value.forEach(item => item.hidden = true);
             stateItem.hidden = false;
@@ -454,7 +529,10 @@ export default defineComponent({
                 to.hidden = false;
             });
         }
-        function handleStateMouseLeave() {
+        function handleStateMouseLeave(stateItem: StateItemData) {
+            if (stateItem.merged) {
+                return;
+            }
             stateItems.value.forEach(item => item.hidden = false);
             lineBlocks.value.forEach(item => item.hidden = false);
         }
@@ -477,7 +555,7 @@ export default defineComponent({
             lineBlocks.value.forEach(item => item.hidden = false);
         }
         function handleStateClick(stateItem: StateItemData): void {
-            if (!lrStore.manual) {
+            if (!lrStore.manual || stateItem.merged) {
                 return;
             }
             Object.entries(lrStore.stateFlags).forEach(entry => {
@@ -599,6 +677,10 @@ svg {
     text-anchor: end;
 }
 .hidden {
+    opacity: 0.2;
+}
+
+.merged {
     opacity: 0.2;
 }
 </style>
