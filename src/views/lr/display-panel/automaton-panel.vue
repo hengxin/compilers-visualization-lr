@@ -83,8 +83,10 @@ interface LineBlockData {
 }
 interface ColumnData {
     stateIds: Array<number>,
-    bottom: number,
-    right: number,
+    // 不需要top，因为肯定是0
+    left: number,
+    height: number,
+    width: number,
 
     linesPassByRight: Array<number>,
     linesPassByLeft: Array<number>,
@@ -108,7 +110,8 @@ function generateStateItemData(state: LRItemSet, top: number, left: number, colu
 }
 function GenerateColumnData(stateIds? :Array<number>): ColumnData {
     return {
-        stateIds: stateIds === undefined ? [] : stateIds, bottom: GAP_MARGIN, right: GAP_MARGIN,
+        stateIds: stateIds === undefined ? [] : stateIds,
+        left: 0, height: GAP_MARGIN, width: GAP_MARGIN,
         linesPassByRight: [], linesPassByLeft: [], linesPassByBottom: []
     };
 }
@@ -144,20 +147,18 @@ export default defineComponent({
         }
         function start() {
             const state = GetParser().automaton.states[0];
-            // initStateFlag(state.id);
-            // lrStore.stateFlags[state.id].active = true;
             stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0));
             columns.push(GenerateColumnData([state.id]));
             nextTick(() => {
                 const stateRef = stateRefs.get(0)!;
-                columns[0].right = stateRef.offsetLeft + stateRef.offsetWidth;
-                columns[0].bottom = stateRef.offsetTop + stateRef.offsetHeight;
+                columns[0].width = stateRef.offsetWidth;
+                columns[0].height = stateRef.offsetHeight;
             });
         }
         start();
 
         // state内部变化会影响该列下侧和右边列
-        function stateUpdate(stateId: number) {
+        function stateUpdate(stateId: number, shift: boolean) {
             let columnIdx = stateItems.value.get(stateId)!.column;
             let column = columns[columnIdx];
             let row = 0;
@@ -166,54 +167,24 @@ export default defineComponent({
                     break;
                 }
             }
-            nextTick(() => {
-                let stateRef = stateRefs.get(stateId)!;
-                // 求该state的右下角坐标
-                let stateRight = stateRef.offsetLeft + stateRef.offsetWidth;
-                let stateBottom = stateRef.offsetTop + stateRef.offsetHeight;
-                // 影响该列下侧的state
-                // row为变化的state的序号，从row+1开始影响位置
-                for (row += 1; row < column.stateIds.length; row++) {
-                    let affectedStateRef = stateRefs.get(column.stateIds[row])!;
-                    let stateItemData = stateItems.value.get(column.stateIds[row])!
-                    stateItemData.top = stateBottom + GAP_STATE;
-                    stateBottom += affectedStateRef.offsetHeight + GAP_STATE;
-                    nextTick(() => {
-                        stateItemData.linesIn.forEach((lineId) => drawLine(lineId));
-                        stateItemData.linesToLeft.forEach((lineId) => drawLine(lineId));
-                        stateItemData.linesToRight.forEach((lineId) => drawLine(lineId));
-                        stateItemData.linesToSameColumn.forEach((lineId) => drawLine(lineId));
-                        stateItemData.linesToSelf.forEach((lineId) => drawLine(lineId));
-                    });
-                }
-                column.right = Math.max(column.right, stateRight);
-                column.bottom = stateBottom;
-                nextTick(() => {
-                    column.linesPassByBottom.forEach((lineId) => {
-                        drawLine(lineId);
-                    });
-                })
-                // GAP_STATE为最下面一列可能存在的自环预留
-                totalHeight.value = Math.max(totalHeight.value, stateBottom + GAP_MARGIN +
-                    GAP_LINE * column.linesPassByBottom.length);
-                totalWidth.value = Math.max(totalWidth.value, stateRight + GAP_MARGIN +
-                    GAP_LINE * column.linesPassByRight.length);
-                // 影响右侧一列（如果存在）
-                if (columnIdx + 1 >= columns.length) {
-                    return;
-                }
-                if (stateRight <= column.right) {
-                    return;
-                }
-                columns[columnIdx + 1].stateIds.forEach((affectedId) => {
-                    let stateItemData = stateItems.value.get(affectedId)!;
-                    stateItemData.left = column.right + GAP_MARGIN * 2 +
-                        GAP_LINE * column.linesPassByRight.length;
-                    nextTick(() => {
-                        stateItemData.linesIn.forEach((lineId) => drawLine(lineId));
-                    });
-                });
-            });
+            let stateRef = stateRefs.get(stateId)!;
+            let stateBottom = stateRef.offsetTop + stateRef.offsetHeight
+            for (row += 1; row < column.stateIds.length; row++) {
+                let affectedStateRef = stateRefs.get(column.stateIds[row])!;
+                let stateItemData = stateItems.value.get(column.stateIds[row])!;
+                stateItemData.top = stateBottom + GAP_STATE;
+                stateBottom += GAP_STATE + affectedStateRef.offsetHeight;
+            }
+
+            column.width = Math.max(column.width, stateRef.offsetWidth);
+            column.height = stateBottom;
+            totalHeight.value = Math.max(totalHeight.value, column.height + GAP_MARGIN +
+                GAP_LINE * column.linesPassByBottom.length);
+            totalWidth.value = Math.max(totalWidth.value, column.left + column.width + GAP_MARGIN +
+                GAP_LINE * column.linesPassByRight.length);
+            if (shift) {
+                ShiftColumns(columnIdx + 1);
+            }
         }
 
         function handleAppendStates(res: AppendStateResult) {
@@ -302,55 +273,58 @@ export default defineComponent({
             // 2. 放置新添加的State的位置
             let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
                 Math.max(currentColumn.linesPassByRight.length, nextColumn.linesPassByLeft.length);
-            console.log("Right: ", currentColumn.right, "GapOfColumns: ", gapOfColumns);
-            function setLocation(i: number, bottom: number, right: number) {
+            function setLocation(i: number, bottom: number, width: number) {
                 if (i >= nextColumn.stateIds.length) {
                     totalHeight.value = Math.max(totalHeight.value, bottom);
-                    totalWidth.value = Math.max(totalWidth.value, right);
-                    nextColumn.right = Math.max(currentColumn.right, right);
-                    nextColumn.bottom = bottom;
-                    ShiftColumns();
+                    totalWidth.value = Math.max(totalWidth.value, nextColumn.left + nextColumn.width);
+                    nextColumn.height = bottom;
+                    ShiftColumns(minTargetColumnIdx);
                     return;
                 }
                 let stateId = nextColumn.stateIds[i];
                 let stateItemData = stateItems.value.get(stateId)!;
-                stateItemData.left = currentColumn.right + gapOfColumns;
+                nextColumn.left = currentColumn.left + currentColumn.width + gapOfColumns;
+                nextColumn.width = Math.max(nextColumn.width, width);
+                stateItemData.left = nextColumn.left;
                 stateItemData.top = bottom + GAP_STATE;
                 // nextTick递归调用，才能获取真正的offsetTop和offsetHeight值
                 nextTick(() => {
                     let stateRef = stateRefs.get(stateId)!;
                     setLocation(i + 1, stateRef.offsetTop + stateRef.offsetHeight,
-                        Math.max(right, stateRef.offsetLeft + stateRef.offsetWidth));
+                        Math.max(width, stateRef.offsetWidth));
                 });
             }
             setLocation(0, -GAP_STATE, 0);
 
-            // 3. 从受影响的最初一列到最后一列，右移
-            function ShiftColumns() {
-                for (let i = minTargetColumnIdx; i < columns.length; i++) {
-                    // 这里可以断言minTargetColumnIdx一定不会小于1，因为下标为0的列仅包含一个初始state，不会有其它state指向它。
-                    let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
-                        Math.max(columns[i - 1].linesPassByRight.length, columns[i].linesPassByLeft.length);
-                    let newLeft = columns[i - 1].right + gapOfColumns;
-                    let shift = newLeft - stateItems.value.get(columns[i].stateIds[0])!.left;
-                    if (shift === 0) {
-                        continue;
-                    }
-                    columns[i].right += shift;
-                    columns[i].stateIds.forEach((stateId) => {
-                        stateItems.value.get(stateId)!.left = newLeft;
-                    });
-                }
-                nextTick(() => {
-                    totalWidth.value = Math.max(totalWidth.value, columns[columns.length - 1].right);
+        }
 
-                    // 4. 重新画线
-                    lineBlocks.value.forEach((_, id) => {
-                        drawLine(id);
-                    })
+        // 3. 从受影响的最初一列到最后一列，右移
+        function ShiftColumns(fromColumnIdx: number) {
+            for (let i = fromColumnIdx; i < columns.length; i++) {
+                // 这里可以断言minTargetColumnIdx一定不会小于1，因为下标为0的列仅包含一个初始state，不会有其它state指向它。
+                let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
+                    Math.max(columns[i - 1].linesPassByRight.length, columns[i].linesPassByLeft.length);
+                let newLeft = columns[i - 1].left + columns[i - 1].width + gapOfColumns;
+                // let shift = newLeft - stateItems.value.get(columns[i].stateIds[0])!.left;
+                let shift = newLeft - columns[i].left;
+                if (shift === 0) {
+                    continue;
+                }
+                columns[i].left += shift;
+                columns[i].stateIds.forEach((stateId) => {
+                    stateItems.value.get(stateId)!.left = newLeft;
                 });
             }
+            nextTick(() => {
+                const lastColumn = columns[columns.length - 1];
+                totalWidth.value = Math.max(totalWidth.value,
+                    lastColumn.left + lastColumn.width + GAP_MARGIN + GAP_LINE * lastColumn.linesPassByRight.length);
+
+                // 4. 重新画线
+                lineBlocks.value.forEach((_, id) => drawLine(id));
+            });
         }
+
         // 画线
         function drawLine(lineBlockId: number) {
             let lineBlock = lineBlocks.value.get(lineBlockId)!;
@@ -364,7 +338,7 @@ export default defineComponent({
                 let startY = fromRef.offsetTop + GAP_INITIAL_LARGE + GAP_OUT * from.linesToRight.indexOf(lineBlockId);
                 let endX = toRef.offsetLeft;
                 let endY = toRef.offsetTop + GAP_INITIAL_SMALL + GAP_IN * to.linesIn.indexOf(lineBlockId);
-                let right = columns[from.column].right + GAP_MARGIN + GAP_LINE * columns[from.column].linesPassByRight.indexOf(lineBlockId);
+                let right = columns[from.column].left + columns[from.column].width + GAP_MARGIN + GAP_LINE * columns[from.column].linesPassByRight.indexOf(lineBlockId);
                 totalWidth.value = Math.max(totalWidth.value, right + GAP_MARGIN);
                 points.push([startX, startY]);
                 points.push([right, startY]);
@@ -375,11 +349,11 @@ export default defineComponent({
                 let startY = fromRef.offsetTop + fromRef.offsetHeight - GAP_INITIAL_LARGE - GAP_OUT * from.linesToLeft.indexOf(lineBlockId);
                 let endX = toRef.offsetLeft;
                 let endY = toRef.offsetTop + GAP_INITIAL_SMALL + GAP_IN * to.linesIn.indexOf(lineBlockId);
-                let right = columns[from.column].right + GAP_MARGIN + GAP_LINE * columns[from.column].linesPassByRight.indexOf(lineBlockId);
+                let right = columns[from.column].left + columns[from.column].width + GAP_MARGIN + GAP_LINE * columns[from.column].linesPassByRight.indexOf(lineBlockId);
                 let left = endX - GAP_MARGIN - GAP_OFFSET - GAP_LINE * columns[to.column].linesPassByLeft.indexOf(lineBlockId);
                 let bottom = 0;
                 for (let i = from.column; i >= to.column; i--) {
-                    bottom = Math.max(bottom, columns[i].bottom + GAP_MARGIN + GAP_LINE * columns[i].linesPassByBottom.indexOf(lineBlockId));
+                    bottom = Math.max(bottom, columns[i].height + GAP_MARGIN + GAP_LINE * columns[i].linesPassByBottom.indexOf(lineBlockId));
                 }
                 totalWidth.value = Math.max(totalWidth.value, right + GAP_MARGIN);
                 totalHeight.value = Math.max(totalHeight.value, bottom + GAP_MARGIN);
@@ -444,19 +418,23 @@ export default defineComponent({
             }
             lineBlocks.value.delete(lineBlockId);
         }
-
+        let remain = 0;
         function handleMergeLr1States(res: MergeLr1StatesResult) {
             res.mergeMap.forEach((target, from) => {
+                // from被合并到target
                 const fromItem =  stateItems.value.get(from)!;
-                fromItem.linesIn.forEach(lineId => deleteLine(lineId));
-                fromItem.linesToLeft.forEach(lineId => deleteLine(lineId));
-                fromItem.linesToRight.forEach(lineId => deleteLine(lineId));
-                fromItem.linesToSameColumn.forEach(lineId => deleteLine(lineId));
-                fromItem.linesToSelf.forEach(lineId => deleteLine(lineId));
+                const deleteFunc = function(lineArr: Array<number>) {
+                    while (lineArr.length > 0) {
+                        deleteLine(lineArr[lineArr.length - 1]);
+                    }
+                }
+                // 大坑！不能在forEach循环里面进行删除操作！会导致跳过！
+                deleteFunc(fromItem.linesIn);
+                deleteFunc(fromItem.linesToLeft);
+                deleteFunc(fromItem.linesToRight);
+                deleteFunc(fromItem.linesToSameColumn);
+                deleteFunc(fromItem.linesToSelf);
                 fromItem.merged = true;
-            });
-            res.mergeMap.forEach((target, from) => {
-                // stateItems.value.delete(from);
             });
             res.transitionChanges.forEach((changeList, stateId) => {
                 changeList.forEach((change) => {
@@ -483,17 +461,30 @@ export default defineComponent({
                         to.linesIn.push(lineBlock.id);
                         columns[from.column].linesPassByLeft.push(lineBlock.id);
                     }
-                    drawLine(lineBlock.id);
+                    // 这里不drawLine也无所谓，最终ShiftColumns时都会重画所有线
                 });
             });
             res.mergeMap.forEach((target, from) => {
                 EventBus.publish("lr", "State" + target + "MergeLr1", from);
+                remain++;
             });
+        }
+        function handleMergeLr1StateDone() {
+            /**
+             * 先在handleMergeLr1States中通过事件总线publish给state，
+             * 再在state里通过事件总线publish到handleMergeLr1StateDone（即本函数）执行
+             * 绕这么一圈为的就是执行顺序。
+             */
+            remain--;
+            if (remain === 0) {
+                ShiftColumns(1);
+            }
         }
 
         const unsubscribe = [
             EventBus.subscribe("lr", "AutomatonAppendStates", handleAppendStates),
             EventBus.subscribe("lr", "AutomatonMergeLr1States", handleMergeLr1States),
+            EventBus.subscribe("lr", "AutomatonMergeLr1StateDone", handleMergeLr1StateDone),
         ];
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
 
@@ -623,7 +614,7 @@ export default defineComponent({
 .automaton-display-panel {
     overflow: auto;
     width: 100%;
-    height: 600px;
+    height: 80vh;
     border: 4px black solid;
     user-select: none;
     position: relative;
@@ -677,10 +668,10 @@ svg {
     text-anchor: end;
 }
 .hidden {
-    opacity: 0.2;
+    opacity: 0.3;
 }
 
 .merged {
-    opacity: 0.2;
+    opacity: 0.3;
 }
 </style>

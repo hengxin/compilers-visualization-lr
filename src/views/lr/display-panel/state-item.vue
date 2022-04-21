@@ -36,7 +36,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, PropType, ref, onUnmounted } from "vue";
+import { defineComponent, PropType, ref, onUnmounted, nextTick } from "vue";
 import { LRItem, LRItemSet } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 import LrItemComponent from "./lr-item.vue";
@@ -84,7 +84,9 @@ export default defineComponent({
             kernel.value = [...state.kernel];
             closureExceptKernel.value = [...state.closure];
             closureExceptKernel.value.splice(0, kernel.value.length);
-            ctx.emit("stateUpdate", props.state.id);
+            nextTick(() => {
+                ctx.emit("stateUpdate", props.state.id, true);
+            });
         }
         const updateStateKey = ref(0);
         const mergeFromList = ref<Array<number>>([]);
@@ -92,6 +94,10 @@ export default defineComponent({
             mergeFromList.value.push(from);
             updateStateKey.value++;
             stateContainerRef.value?.classList.add("state-merged");
+            nextTick(() => {
+                ctx.emit("stateUpdate", props.state.id, false);
+                EventBus.publish("lr", "AutomatonMergeLr1StateDone");
+            })
         }
         const unsubscribe = [
             EventBus.subscribe("lr", "State" + props.state.id + "ClosureStep", handleClosureStep),
