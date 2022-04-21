@@ -85,7 +85,7 @@ export default defineComponent({
         }
         function parse() {
             try {
-                InitParser(algorithm.value, grammar.value, text.value);
+                InitParser(algorithm.value, grammar.value, text.value, true);
                 const parser = GetParser();
                 started.value = true;
                 ruleList.value = parser.store.rules;

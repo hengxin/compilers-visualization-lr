@@ -5,7 +5,8 @@ import {
     Rule,
     _Symbol,
     Terminal,
-    NonTerminal
+    NonTerminal,
+    TERMINAL_NAMES_REVERSE,
 } from "./grammar";
 
 /**
@@ -958,7 +959,7 @@ function first(symbolString: _Symbol[]): Terminal[] {
     return Array.from(result);
 }
 
-class ControllableLRParser {
+class InteractiveLrParser {
     readonly algo: ParseAlgorithm;
     automaton: Automaton;
     currentToken: Token;
@@ -967,8 +968,22 @@ class ControllableLRParser {
     done: boolean = false;
     store = PARSER_STORE;
 
-    constructor(algo: ParseAlgorithm, rules: Array<Rule>, tokens: Array<Token>) {
+    constructor(algo: ParseAlgorithm, rules: Array<Rule>, tokens: Array<Token>, replaceTerminalName: boolean) {
         this.algo = algo;
+        if (replaceTerminalName) {
+            rules.forEach((rule) => {
+                rule.expansion.forEach((sym) => {
+                    if (TERMINAL_NAMES_REVERSE[sym.name] !== undefined) {
+                        sym.name = TERMINAL_NAMES_REVERSE[sym.name];
+                    }
+                });
+            });
+            tokens.forEach((token) => {
+                if (TERMINAL_NAMES_REVERSE[token.type] !== undefined) {
+                    token.type = TERMINAL_NAMES_REVERSE[token.type];
+                }
+            })
+        }
         PARSER_STORE.rules = rules;
         PARSER_STORE.tokens = tokens;
 
@@ -988,12 +1003,11 @@ class ControllableLRParser {
             }
             rule.origin = saveInSymbolMap(rule.origin);
             rule.expansion.forEach((sym: _Symbol, i: number, arr: _Symbol[]) => {
+                // if (replaceTerminalName && TERMINAL_NAMES_REVERSE[sym.name] !== undefined) {
+                //     sym.name = TERMINAL_NAMES_REVERSE[sym.name];
+                // }
                 arr[i] = saveInSymbolMap(sym);
             });
-            // TODO 这个undefined|null改为0，仅临时使用，合并UI分支后应由Rule类直接初始化为0
-            // if (rule.priority === undefined || rule.priority === null) {
-            //     rule.priority = 0;
-            // }
             PARSER_STORE.ruleIndexMap.set(rule, index);
         });
         if (!PARSER_STORE.startRule) {
@@ -1095,7 +1109,7 @@ class ControllableLRParser {
 }
 
 export {
-    ControllableLRParser, LRItem, LRItemSet,
+    InteractiveLrParser, LRItem, LRItemSet,
     type ParseAlgorithm, type AppendStateResult,
     type MergeLr1StatesResult,
     ParseTable, PARSER_STORE

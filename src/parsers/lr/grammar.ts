@@ -1,4 +1,4 @@
-class _Symbol{
+class _Symbol {
     name: string;
     isTerm: boolean = false;
     protected constructor(name: string) {
@@ -11,8 +11,7 @@ class _Symbol{
         } else if (type === NonTerminal._type) {
             return new NonTerminal(data.name);
         } else {
-            // NotImplemented
-            return new Terminal("?");
+            throw new Error();
         }
     };
     eq(other: _Symbol) {
@@ -36,7 +35,7 @@ class NonTerminal extends _Symbol {
     }
 }
 
-class Rule{
+class Rule {
     static _type: string = "Rule";
     origin: _Symbol;
     expansion: _Symbol[];
@@ -53,7 +52,7 @@ class Rule{
     static deserialize(data: any) {
         let type = data.__type__ as string;
         if (type !== Rule._type) {
-            // error
+            throw new Error();
         }
         return new Rule(
             _Symbol.deserialize(data.origin),
@@ -64,7 +63,7 @@ class Rule{
     }
 }
 
-class Token{
+class Token {
     static _type: string = "Token";
     type: string;
     value: string;
@@ -90,7 +89,7 @@ class Token{
     static deserialize(data: any) {
         let type = data.__type__ as string;
         if (type !== Token._type) {
-            // error
+            throw new Error();
         }
         return new Token(
             data.type as string, data.value as string,
@@ -100,4 +99,43 @@ class Token{
     }
 }
 
-export { _Symbol, Terminal, NonTerminal, Rule, Token }
+const TERMINAL_NAMES_REVERSE: { [name: string]: string } = {
+    'DOT': '.',
+    'COMMA': ',',
+    'COLON': ':',
+    'SEMICOLON': ';',
+    'PLUS': '+',
+    'MINUS': '-',
+    'STAR': '*',
+    'SLASH': '/',
+    'BACKSLASH': '\\',
+    'VBAR': '|',
+    'QMARK': '?',
+    'BANG': '!',
+    'AT': '@',
+    'HASH': '#',
+    'DOLLAR': '$',
+    'PERCENT': '%',
+    'CIRCUMFLEX': '^',
+    'AMPERSAND': '&',
+    'UNDERSCORE': '_',
+    'LESSTHAN': '<',
+    'MORETHAN': '>',
+    'EQUAL': '=',
+    'DBLQUOTE': '"',
+    'QUOTE': '\'',
+    'BACKQUOTE': '`',
+    'TILDE': '~',
+    'LPAR': '(',
+    'RPAR': ')',
+    'LBRACE': '{',
+    'RBRACE': '}',
+    'LSQB': '[',
+    'RSQB': ']',
+    // 'NEWLINE': '\n',
+    // 'CRLF': '\r\n',
+    // 'TAB': '\t',
+    // 'SPACE': ' ',
+}
+
+export { _Symbol, Terminal, NonTerminal, Rule, Token, TERMINAL_NAMES_REVERSE };

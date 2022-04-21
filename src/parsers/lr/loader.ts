@@ -1,5 +1,5 @@
 import { GetPyodide, LoadPyodide } from "@/utils/pyodide";
-import { ControllableLRParser, ParseAlgorithm, Rule, Token } from "@/parsers/lr";
+import { InteractiveLrParser, ParseAlgorithm, Rule, Token } from "@/parsers/lr";
 
 async function LoadDependency(callback: (s: string) => void) {
     const pyodide = await LoadPyodide(callback)
@@ -13,9 +13,9 @@ async function LoadDependency(callback: (s: string) => void) {
     callback("Finish loading Lark.");
 }
 
-let parser: ControllableLRParser | undefined = undefined;
+let parser: InteractiveLrParser | undefined = undefined;
 
-function InitParser(algorithm: ParseAlgorithm, grammar: string, text: string) {
+function InitParser(algorithm: ParseAlgorithm, grammar: string, text: string, replaceTerminalName: boolean) {
     const pyodide = GetPyodide();
     const ruleList: Array<Rule> = [];
     const tokenList: Array<Token> = [];
@@ -52,12 +52,12 @@ function InitParser(algorithm: ParseAlgorithm, grammar: string, text: string) {
         "del tokenGenerator\n" +
         "del tokenList";
     pyodide.runPython(code);
-    const _parser = new ControllableLRParser(algorithm, ruleList, tokenList);
+    const _parser = new InteractiveLrParser(algorithm, ruleList, tokenList, replaceTerminalName);
     parser = _parser;
     return _parser;
 }
 
-function GetParser(): ControllableLRParser {
+function GetParser(): InteractiveLrParser {
     if (parser === undefined) {
         throw new Error("Parser not inited");
     }

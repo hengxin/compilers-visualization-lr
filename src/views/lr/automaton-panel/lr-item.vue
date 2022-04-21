@@ -11,7 +11,10 @@
         </template>
         <template v-if="lrItem.lookahead.size > 0">
             <span class="lr-item-comma">,</span>
-            <span class="lr-item-lookahead terminal" v-for="(la) in lrItem.lookahead">{{ la.name }}</span>
+            <template v-for="(la, index) in lrItem.lookahead">
+                <span class="lr-item-symbol terminal">{{la.name}}</span>
+                <span class="lr-item-lookahead-sep" v-if="index !== lrItem.lookahead.size - 1">/</span>
+            </template>
         </template>
     </div>
 </template>
@@ -25,34 +28,41 @@ export default defineComponent({
 });
 </script>
 <style scoped>
+/* 字体与样式 */
 .lr-item-symbol,
 .lr-item-dot {
+    font-weight: bold;
+}
+
+.terminal {
+    font-family: "Times New Roman";
+}
+
+.non-terminal,
+.lr-item-arrow,
+.lr-item-dot,
+.lr-item-comma {
+    font-family: "Cambria Math";
+}
+
+.lr-item-arrow,
+.lr-item-comma,
+.lr-item-lookahead-sep {
+    color: red;
+}
+
+/* 位置与边距 */
+.lr-item-symbol,
+.lr-item-dot,
+.lr-item-comma {
     margin: 0 2px;
 }
 
 .lr-item-arrow {
     margin: 0 4px;
 }
-.terminal {
-    font-family: "Times New Roman";
-}
-.non-terminal,
-.lr-item-arrow,
-.lr-item-dot,
-.lr-item-comma,
-.lr-item-lookahead-sep {
-    font-family: "Cambria Math";
-}
-.lr-item-comma {
-    margin: 0 4px 0 0;
-}
-.lr-item-lookahead:last-child {
-    margin-right: 2px;
-}
-.lr-item-lookahead::after {
-    content: "/";
-}
-.lr-item-lookahead:last-child::after {
-    content: "";
+
+.lr-item-symbol {
+    border: 1px gray solid;
 }
 </style>

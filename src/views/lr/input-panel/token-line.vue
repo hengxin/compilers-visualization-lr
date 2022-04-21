@@ -8,7 +8,7 @@
                 :style="tag.active ? { backgroundColor: tag.color[0], color: tag.color[1], borderColor: tag.color[1] } :
                     { backgroundColor: inactiveColor[0], color: inactiveColor[1], borderColor: inactiveColor[1] }"
             >
-                <div class="token-tag-sm">[{{ tag.token.type }}]</div>
+                <!-- <div class="token-tag-sm">[{{ tag.token.type }}]</div> -->
                 <div>{{ tag.token.value }}</div>
             </div>
         </div>
