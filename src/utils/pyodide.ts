@@ -44,6 +44,6 @@ function GetPyodide(): Pyodide {
 }
 
 export { 
-    Pyodide, PyProxy,
+    type Pyodide, type PyProxy,
     LoadPyodide, GetPyodide
 };

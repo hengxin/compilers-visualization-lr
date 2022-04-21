@@ -20,7 +20,7 @@ import { LoadDependency } from "@/parsers/lr"
 
 import InputPanel from "./input-panel/input-panel.vue";
 import ControlPanel from "./control-panel/control-panel.vue";
-import Automaton from "./display-panel/automaton-panel.vue";
+import Automaton from "./automaton-panel/automaton-panel.vue";
 import ParseTableVue from "./parse-table/parse-table.vue";
 import ParseTree from "./parse-tree/parse-tree.vue";
 
