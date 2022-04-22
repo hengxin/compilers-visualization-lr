@@ -8,9 +8,9 @@
         <tr>
             <th v-for="sym in header">{{ sym.name }}</th>
         </tr>
-        <tr v-for="(row, index) in data">
-            <td>{{ index }}</td>
-            <td v-for="action in row">{{ action }}</td>
+        <tr v-for="row in data">
+            <td>{{ row[0] }}</td>
+            <td v-for="action in row[1]">{{ action }}</td>
         </tr></table>
 </template>
 <script lang="ts">
@@ -18,12 +18,12 @@ import { defineComponent } from "vue";
 import { GetParser } from "@/parsers/lr";
 export default defineComponent({
     setup() {
-        const data: Array<Array<string>> = [];
+        const data: Array<[number, Array<string>]> = [];
         const parser = GetParser();
-        for (let i = 0; i < parser.parseTable.actionTable.length; i++) {
+        parser.parseTable.actionTable.forEach((_, stateId) => {
             let row: Array<string> = [];
             parser.parseTable.actionHeader.forEach((sym) => {
-                let action = parser.parseTable.actionTable[i].get(sym);
+                let action = parser.parseTable.actionTable.get(stateId)!.get(sym);
                 if (action === undefined) {
                     row.push("");
                 } else {
@@ -31,15 +31,17 @@ export default defineComponent({
                 }
             });
             parser.parseTable.gotoHeader.forEach((sym) => {
-                let action = parser.parseTable.gotoTable[i].get(sym);
+                let action = parser.parseTable.gotoTable.get(stateId)!.get(sym);
                 if (action === undefined) {
                     row.push("");
                 } else {
                     row.push(action.toString());
                 }
             });
-            data.push(row);
-        }
+            data.push([stateId, row]);
+        });
+        // for (let i = 0; i < parser.parseTable.actionTable.length; i++) {
+        // }
         const actionHeaderCnt = parser.parseTable.actionHeader.length;
         const gotoHeaderCnt = parser.parseTable.gotoHeader.length;
         const header = [...parser.parseTable.actionHeader, ...parser.parseTable.gotoHeader];

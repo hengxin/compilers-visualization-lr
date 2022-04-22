@@ -99,20 +99,26 @@ function FindNextState(): boolean {
 }
 
 async function skipAutomaton() {
+    if (manual.value) {
+        throw new Error();
+    }
     lrStore.automatonLoading = true;
-    while (automatonStatus.value === AutomatonStatus.Calculate) {
-        const flags = lrStore.stateFlags[currentStateId.value];
-        if (!flags.closureDone) {
-            await CalcClosure();
+    // 这里使用setTimeout是为了事件顺序，让loading先显示？
+    setTimeout(async () => {
+        while (automatonStatus.value === AutomatonStatus.Calculate) {
+            const flags = lrStore.stateFlags[currentStateId.value];
+            if (!flags.closureDone) {
+                await CalcClosure();
+            }
+            if (!flags.appended) {
+                await AppendStates();
+            }
         }
-        if (!flags.appended) {
-            await AppendStates();
+        if (automatonStatus.value === AutomatonStatus.Merge) {
+            await MergeLr1States();
         }
-    }
-    if (automatonStatus.value === AutomatonStatus.Merge) {
-        await MergeLr1States();
-    }
-    lrStore.automatonLoading = false;
+        lrStore.automatonLoading = false;
+    });
 }
 
 async function MergeLr1States() {

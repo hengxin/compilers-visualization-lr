@@ -5,11 +5,12 @@
         <div class="panel-container" v-if="showAutomaton">
             <Automaton></Automaton>
             <div class="automaton-loading-mask" v-if="automatonLoading">
-                <div class="loading">
+                <!-- <div class="loading">
                     <svg class="loading-svg">
                         <circle class="loading-circle" cx="22" cy="22" r="20"></circle>
                     </svg>
-                </div>
+                </div> -->
+                <div class="loading">正在加载...</div>
             </div>
         </div>
         <ParseTableVue v-if="showParseTable"></ParseTableVue>

@@ -717,10 +717,10 @@ class Accept extends Action {
         super("Accept", "acc", -1, PARSER_STORE.startRule);
     }
 }
-type ParseTableInner = Array<Map<_Symbol, Array<Action>>>;
+type ParseTableInner = Map<number, Map<_Symbol, Array<Action>>>;
 class ParseTable {
-    actionTable: ParseTableInner = [];
-    gotoTable: ParseTableInner = [];
+    actionTable: ParseTableInner = new Map();
+    gotoTable: ParseTableInner = new Map();
     actionHeader: Array<_Symbol> = [];
     gotoHeader: Array<_Symbol> = [];
     conflict: boolean = false;
@@ -744,7 +744,7 @@ class ParseTable {
             let row: string[] = [index.toString()];
             header.forEach((val) => {
                 let sym = PARSER_STORE.symbolMap.get(val)!;
-                let tmp: Action[] = sym.isTerm ? this.actionTable[index].get(sym)! : this.gotoTable[index].get(sym)!;
+                let tmp: Action[] = sym.isTerm ? this.actionTable.get(state.id)!.get(sym)! : this.gotoTable.get(state.id)!.get(sym)!;
                 row.push(tmp ? tmp.toString() : "");
             });
             rows.push(row);
@@ -791,9 +791,9 @@ class ParseTable {
      * 3.其余情况无法比较优先级，移入/规约冲突优先选择移入动作，规约/规约冲突选择的动作不确定。
      */
     private insert(table: ParseTableInner, stateId: number, sym: _Symbol, action: Action) {
-        let actions = table[stateId].get(sym);
+        let actions = table.get(stateId)!.get(sym);
         if (actions === undefined) {
-            table[stateId].set(sym, [action]);
+            table.get(stateId)!.set(sym, [action]);
         } else {
             this.conflict = true;
             actions.push(action);
@@ -830,18 +830,13 @@ class ParseTable {
             }
             sym.isTerm ? this.actionHeader.push(sym) : this.gotoHeader.push(sym);
         });
-        this.actionTable = new Array(this.automaton.states.length);
-        this.gotoTable = new Array(this.automaton.states.length);
-        for (let i = 0; i < this.automaton.states.length; i++) {
-            this.actionTable[i] = new Map();
-            this.gotoTable[i] = new Map();
-        }
+        this.actionTable = new Map();
+        this.gotoTable = new Map();
         this.automaton.states.forEach((state) => {
+            this.actionTable.set(state.id, new Map());
+            this.gotoTable.set(state.id, new Map());
             let stateId = state.id
             let stateTrans = this.automaton.transitions.get(stateId);
-
-        // })
-        // this.automaton.transitions.forEach((stateTrans, stateId) => {
             stateTrans?.forEach((target, sym) => {
                 let actionRule = this.automaton.transitionsRule.get(stateId)!.get(sym);
                 if (actionRule === undefined) {
@@ -889,7 +884,7 @@ class ParseTable {
 
     get(tableName: "ACTION" | "GOTO", stateId: number, symbol: _Symbol): Action | undefined {
         let table = tableName === "ACTION" ? this.actionTable : this.gotoTable;
-        let actions = table[stateId].get(symbol);
+        let actions = table.get(stateId)!.get(symbol);
         return actions === undefined ? actions : actions[0];
     }
 }
@@ -1053,7 +1048,6 @@ class InteractiveLrParser {
     }
 
     calcParseTable() {
-        // this.parseTable = new ParseTable(this.automaton);
         this.parseTable.calc();
         return this.parseTable;
     }
