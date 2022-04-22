@@ -20,5 +20,6 @@ export const useLrStore = defineStore("lr", {
         stateFlags: {
             0: { active: true, closureDone: false, appended: false }
         } as IStateFlagList,
+        automatonLoading: false,
     }),
 });

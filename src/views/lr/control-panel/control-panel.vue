@@ -18,7 +18,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import { GButton, GSwitch } from "@/components";
 import { useLrStore } from "@/stores";
 import { GetParser } from "@/parsers/lr";
@@ -99,6 +99,7 @@ function FindNextState(): boolean {
 }
 
 async function skipAutomaton() {
+    lrStore.automatonLoading = true;
     while (automatonStatus.value === AutomatonStatus.Calculate) {
         const flags = lrStore.stateFlags[currentStateId.value];
         if (!flags.closureDone) {
@@ -111,6 +112,7 @@ async function skipAutomaton() {
     if (automatonStatus.value === AutomatonStatus.Merge) {
         await MergeLr1States();
     }
+    lrStore.automatonLoading = false;
 }
 
 async function MergeLr1States() {

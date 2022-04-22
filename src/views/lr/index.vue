@@ -2,7 +2,16 @@
     <div v-if="larkLoaded">
         <InputPanel></InputPanel>
         <ControlPanel v-if="showControlPanel"></ControlPanel>
-        <Automaton v-if="showAutomaton"></Automaton>
+        <div class="panel-container" v-if="showAutomaton">
+            <Automaton></Automaton>
+            <div class="automaton-loading-mask" v-if="automatonLoading">
+                <div class="loading">
+                    <svg class="loading-svg">
+                        <circle class="loading-circle" cx="22" cy="22" r="20"></circle>
+                    </svg>
+                </div>
+            </div>
+        </div>
         <ParseTableVue v-if="showParseTable"></ParseTableVue>
         <ParseTree></ParseTree>
     </div>
@@ -48,16 +57,69 @@ export default defineComponent({
         const showControlPanel = computed(() => lrStore.showControlPanel);
         const showAutomaton = computed(() => lrStore.showAutomaton);
         const showParseTable = computed(() => lrStore.showParseTable);
+        const automatonLoading = computed(() => lrStore.automatonLoading);
         return {
             t,
             larkLoaded, loadingMsg,
             showControlPanel,
             showAutomaton,
             showParseTable,
+            automatonLoading,
         }
     }
 });
 
 </script>
 <style scoped>
+.panel-container {
+    position: relative;
+}
+.automaton-loading-mask {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(255, 255, 255, 0.8);
+    z-index: 30;
+}
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+.loading-svg {
+    width: 44px;
+    height: 44px;
+    animation: loading-rotate 2s linear infinite;
+}
+.loading-circle {
+    stroke: var(--color-klein-blue);
+    stroke-width: 2;
+    fill: none;
+    animation: loading-dash 1.5s ease-in-out infinite;
+}
+@keyframes loading-rotate {
+    0% {
+        transform: rotate(0);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+@keyframes loading-dash {
+    0% {
+        stroke-dasharray: 1, 200;
+        stroke-dashoffset: 0;
+    }
+    50% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -40px;
+    }
+    100% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -120px;
+    }
+}
 </style>
