@@ -3,6 +3,7 @@
         <div class="control-panel">
             <template v-if="!started">
                 <GRadioButtonGroup v-model="algorithm" :options="algos"></GRadioButtonGroup>
+                <GSwitch v-model="replaceTerminalName" active-text="替换字符" inactive-text="保留字符"></GSwitch>
                 <GButton @click="parse()">Parse{{ algorithm }}</GButton>
             </template>
             <template v-else>
@@ -42,7 +43,7 @@ import { ref, defineComponent, PropType, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useLrStore } from "@/stores";
-import { GRadioButtonGroup, GButton, GTextarea, GArrow, GNotification } from "@/components";
+import { GRadioButtonGroup, GButton, GTextarea, GArrow, GNotification, GSwitch } from "@/components";
 import { InitParser, GetParser, ParseAlgorithm, Token, Rule } from "@/parsers/lr";
 import RuleLine from "./rule-line.vue";
 import TokenLine from "./token-line.vue";
@@ -54,6 +55,7 @@ export default defineComponent({
         GButton,
         GTextarea,
         GArrow,
+        GSwitch,
         RuleLine,
         TokenLine,
     },
@@ -71,6 +73,7 @@ export default defineComponent({
 }`);
         const algos: Array<ParseAlgorithm> = ["LR0", "LR1", "LR0_LALR1", "LR1_LALR1"];
         const algorithm = ref<ParseAlgorithm>("LR0");
+        const replaceTerminalName = ref(true);
         const ruleList = ref<Array<Rule>>([]);
         const tokenList = ref<Array<Token>>([]);
         const started = ref(false);
@@ -85,7 +88,7 @@ export default defineComponent({
         }
         function parse() {
             try {
-                InitParser(algorithm.value, grammar.value, text.value, true);
+                InitParser(algorithm.value, grammar.value, text.value, replaceTerminalName.value);
                 const parser = GetParser();
                 started.value = true;
                 ruleList.value = parser.store.rules;
@@ -132,6 +135,7 @@ export default defineComponent({
         }
         return {
             t, parse, reset,
+            replaceTerminalName,
             grammar, text, algos, algorithm, ruleList, tokenLineList, started
         };
     }

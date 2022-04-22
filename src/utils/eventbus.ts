@@ -11,7 +11,7 @@ interface IEventBus {
 const _eventBus: IEventBus = {};
 let _callbackId = 0;
 const EventBus = {
-    publish(moduleName: string, eventName: string, ...args: any[]): void {
+    async publish(moduleName: string, eventName: string, ...args: any[]) {
         console.log("PUBLISH: " + moduleName + "/" + eventName);
         const module = _eventBus[moduleName];
         if (!module) {
@@ -21,9 +21,11 @@ const EventBus = {
         if (!callbackList) {
             return;
         }
+        let promises = [];
         for (let id in callbackList) {
-            callbackList[id](...args);
+            promises.push(callbackList[id](...args));
         }
+        return Promise.all(promises);
     },
     subscribe(moduleName: string, eventName: string, callback: Function) {
         if (!_eventBus[moduleName]) {

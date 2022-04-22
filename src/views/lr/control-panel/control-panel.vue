@@ -7,6 +7,7 @@
             <GButton v-show="showAppendStatesButton" @click="AppendStates()">状态转换</GButton>
             <span>手动模式：</span>
             <GSwitch :model-value="manual" @change="SwitchMode" :disabled="manual"></GSwitch>
+            <GButton @click="skipAutomaton()">skip</GButton>
         </template>
         <template v-if="automatonStatus === AutomatonStatus.Merge">
             <GButton @click="MergeLr1States()">合并相同核心的LR1项</GButton>
@@ -48,18 +49,18 @@ const showAppendStatesButton = computed(() => {
 // const showMergeLr1StatesButton = computed(() => algorithm.value === "LR1_LALR1" && (manual.value || automatonStatus.value === AutomatonStatus.Merge));
 const showCalcParseTableButton = computed(() => !manual.value && automatonStatus.value === AutomatonStatus.Done);
 
-function CalcClosure() {
+async function CalcClosure() {
     const state = parser.automaton.CalcStateClosure(currentStateId.value, algorithm.value);
     if (algorithm.value === "LR1" || algorithm.value === "LR1_LALR1") {
         parser.automaton.MergeLookaheads(currentStateId.value);
     }
     lrStore.stateFlags[currentStateId.value].closureDone = true;
-    EventBus.publish("lr", "State" + currentStateId.value + "Closure", state);
+    await EventBus.publish("lr", "State" + currentStateId.value + "Closure", state);
 }
 
-function AppendStates() {
+async function AppendStates() {
     const res = parser.automaton.AppendStates(currentStateId.value);
-    EventBus.publish("lr", "AutomatonAppendStates", res);
+    await EventBus.publish("lr", "AutomatonAppendStates", res);
     if (!manual.value) {
         lrStore.stateFlags[currentStateId.value].active = false;
         const finded: boolean = FindNextState();
@@ -97,9 +98,24 @@ function FindNextState(): boolean {
     return true;
 }
 
-function MergeLr1States() {
+async function skipAutomaton() {
+    while (automatonStatus.value === AutomatonStatus.Calculate) {
+        const flags = lrStore.stateFlags[currentStateId.value];
+        if (!flags.closureDone) {
+            await CalcClosure();
+        }
+        if (!flags.appended) {
+            await AppendStates();
+        }
+    }
+    if (automatonStatus.value === AutomatonStatus.Merge) {
+        await MergeLr1States();
+    }
+}
+
+async function MergeLr1States() {
     const res = parser.automaton.mergeLr1();
-    EventBus.publish("lr", "AutomatonMergeLr1States", res);
+    await EventBus.publish("lr", "AutomatonMergeLr1States", res);
     automatonStatus.value = AutomatonStatus.Done;
 }
 

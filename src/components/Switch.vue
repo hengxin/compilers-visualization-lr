@@ -1,11 +1,11 @@
 <template>
     <div :class="['__g-switch', disabled ? '__g-switch-disabled' : '']" @click="switchChange()">
-        <span v-if="activeText">{{ activeText }}</span>
+        <span v-if="inactiveText">{{ inactiveText }}</span>
         <span :class="['__g-switch-core', modelValue ? '__g-switch-core-active' : '__g-switch-core-inactive']">
             <div :class="['__g-switch-circle', modelValue ? '__g-switch-circle-active' : '__g-switch-circle-inactive']">
             </div>
         </span>
-        <span v-if="inactiveText">{{ inactiveText }}</span>
+        <span v-if="activeText">{{ activeText }}</span>
     </div>
 </template>
 <script lang="ts">

@@ -46,6 +46,7 @@ export default defineComponent({
     props: {
         state: { type: Object as PropType<LRItemSet>, required: true },
     },
+    emits: ["updateState"],
     components: {
         LrItemComponent,
     },
@@ -69,7 +70,7 @@ export default defineComponent({
                 closureExceptKernel.value.push(item);
             });
             if (items.length !== 0 && update) {
-                ctx.emit("stateUpdate", props.state.id);
+                ctx.emit("updateState", props.state.id);
             }
         }
         const updateClosureKey = ref(0); // 仅用来强制刷新组件
@@ -85,19 +86,17 @@ export default defineComponent({
             closureExceptKernel.value = [...state.closure];
             closureExceptKernel.value.splice(0, kernel.value.length);
             nextTick(() => {
-                ctx.emit("stateUpdate", props.state.id, true);
+                ctx.emit("updateState", props.state.id, true);
             });
         }
         const updateStateKey = ref(0);
         const mergeFromList = ref<Array<number>>([]);
-        function handleMergeLr1(from: number) {
+        async function handleMergeLr1(from: number) {
             mergeFromList.value.push(from);
             updateStateKey.value++;
             stateContainerRef.value?.classList.add("state-merged");
-            nextTick(() => {
-                ctx.emit("stateUpdate", props.state.id, false);
-                EventBus.publish("lr", "AutomatonMergeLr1StateDone");
-            })
+            await nextTick();
+            ctx.emit("updateState", props.state.id, false);
         }
         const unsubscribe = [
             EventBus.subscribe("lr", "State" + props.state.id + "ClosureStep", handleClosureStep),

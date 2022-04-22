@@ -14,7 +14,7 @@
                 @mouseleave="handleStateMouseLeave(item[1])"
                 @click="handleStateClick(item[1])"
             >
-                <StateItem :state="item[1].state" @stateUpdate="stateUpdate"></StateItem>
+                <StateItem :state="item[1].state" @updateState="updateState"></StateItem>
             </div>
             <svg style="position: absolute;top: 0;width: 100%; height: 100%;">
                 <g
@@ -158,7 +158,7 @@ export default defineComponent({
         start();
 
         // state内部变化会影响该列下侧和右边列
-        function stateUpdate(stateId: number, shift: boolean) {
+        async function updateState(stateId: number, shift: boolean) {
             let columnIdx = stateItems.value.get(stateId)!.column;
             let column = columns[columnIdx];
             let row = 0;
@@ -183,11 +183,11 @@ export default defineComponent({
             totalWidth.value = Math.max(totalWidth.value, column.left + column.width + GAP_MARGIN +
                 GAP_LINE * column.linesPassByRight.length);
             if (shift) {
-                ShiftColumns(columnIdx + 1);
+                await ShiftColumns(columnIdx + 1);
             }
         }
 
-        function handleAppendStates(res: AppendStateResult) {
+        async function handleAppendStates(res: AppendStateResult) {
             lrStore.stateFlags[res.from].appended = true;
             let currentColumnIdx = stateItems.value.get(res.from)!.column;
             let currentColumn = columns[currentColumnIdx];
@@ -273,39 +273,31 @@ export default defineComponent({
             // 2. 放置新添加的State的位置
             let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
                 Math.max(currentColumn.linesPassByRight.length, nextColumn.linesPassByLeft.length);
-            function setLocation(i: number, bottom: number, width: number) {
-                if (i >= nextColumn.stateIds.length) {
-                    totalHeight.value = Math.max(totalHeight.value, bottom);
-                    totalWidth.value = Math.max(totalWidth.value, nextColumn.left + nextColumn.width);
-                    nextColumn.height = bottom;
-                    ShiftColumns(minTargetColumnIdx);
-                    return;
-                }
+            let bottom = -GAP_STATE;
+            nextColumn.left = currentColumn.left + currentColumn.width + gapOfColumns;
+            for (let i = 0; i < nextColumn.stateIds.length; i++) {
                 let stateId = nextColumn.stateIds[i];
                 let stateItemData = stateItems.value.get(stateId)!;
-                nextColumn.left = currentColumn.left + currentColumn.width + gapOfColumns;
-                nextColumn.width = Math.max(nextColumn.width, width);
                 stateItemData.left = nextColumn.left;
                 stateItemData.top = bottom + GAP_STATE;
-                // nextTick递归调用，才能获取真正的offsetTop和offsetHeight值
-                nextTick(() => {
-                    let stateRef = stateRefs.get(stateId)!;
-                    setLocation(i + 1, stateRef.offsetTop + stateRef.offsetHeight,
-                        Math.max(width, stateRef.offsetWidth));
-                });
+                await nextTick();
+                let stateRef = stateRefs.get(stateId)!;
+                bottom = stateRef.offsetTop + stateRef.offsetHeight;
+                nextColumn.width = Math.max(nextColumn.width, stateRef.offsetWidth);
             }
-            setLocation(0, -GAP_STATE, 0);
-
+            totalHeight.value = Math.max(totalHeight.value, bottom);
+            totalWidth.value = Math.max(totalWidth.value, nextColumn.left + nextColumn.width);
+            nextColumn.height = bottom;
+            // 3. 从受影响的最初一列到最后一列，右移并重绘
+            await ShiftColumns(minTargetColumnIdx);
         }
 
-        // 3. 从受影响的最初一列到最后一列，右移
-        function ShiftColumns(fromColumnIdx: number) {
+        async function ShiftColumns(fromColumnIdx: number) {
             for (let i = fromColumnIdx; i < columns.length; i++) {
                 // 这里可以断言minTargetColumnIdx一定不会小于1，因为下标为0的列仅包含一个初始state，不会有其它state指向它。
                 let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
                     Math.max(columns[i - 1].linesPassByRight.length, columns[i].linesPassByLeft.length);
                 let newLeft = columns[i - 1].left + columns[i - 1].width + gapOfColumns;
-                // let shift = newLeft - stateItems.value.get(columns[i].stateIds[0])!.left;
                 let shift = newLeft - columns[i].left;
                 if (shift === 0) {
                     continue;
@@ -315,18 +307,19 @@ export default defineComponent({
                     stateItems.value.get(stateId)!.left = newLeft;
                 });
             }
-            nextTick(() => {
-                const lastColumn = columns[columns.length - 1];
-                totalWidth.value = Math.max(totalWidth.value,
-                    lastColumn.left + lastColumn.width + GAP_MARGIN + GAP_LINE * lastColumn.linesPassByRight.length);
+            await nextTick();
+            const lastColumn = columns[columns.length - 1];
+            totalWidth.value = Math.max(totalWidth.value,
+                lastColumn.left + lastColumn.width + GAP_MARGIN + GAP_LINE * lastColumn.linesPassByRight.length);
 
-                // 4. 重新画线
-                lineBlocks.value.forEach((_, id) => drawLine(id));
-            });
+            // 重新画线
+            const promises: Array<any> = [];
+            lineBlocks.value.forEach((_, id) => promises.push(drawLine(id)));
+            return Promise.all(promises);
         }
 
         // 画线
-        function drawLine(lineBlockId: number) {
+        async function drawLine(lineBlockId: number) {
             let lineBlock = lineBlocks.value.get(lineBlockId)!;
             let from = stateItems.value.get(lineBlock.from)!;
             let to = stateItems.value.get(lineBlock.to)!;
@@ -388,6 +381,7 @@ export default defineComponent({
                 points.push([endX, endY]);
             }
             lineBlock.points = points;
+            return nextTick();
         }
 
         function deleteLine(lineBlockId: number) {
@@ -418,8 +412,8 @@ export default defineComponent({
             }
             lineBlocks.value.delete(lineBlockId);
         }
-        let remain = 0;
-        function handleMergeLr1States(res: MergeLr1StatesResult) {
+
+        async function handleMergeLr1States(res: MergeLr1StatesResult) {
             res.mergeMap.forEach((target, from) => {
                 // from被合并到target
                 const fromItem =  stateItems.value.get(from)!;
@@ -464,27 +458,17 @@ export default defineComponent({
                     // 这里不drawLine也无所谓，最终ShiftColumns时都会重画所有线
                 });
             });
+            const promises: Array<any> = [];
             res.mergeMap.forEach((target, from) => {
-                EventBus.publish("lr", "State" + target + "MergeLr1", from);
-                remain++;
+                promises.push(EventBus.publish("lr", "State" + target + "MergeLr1", from));
             });
-        }
-        function handleMergeLr1StateDone() {
-            /**
-             * 先在handleMergeLr1States中通过事件总线publish给state，
-             * 再在state里通过事件总线publish到handleMergeLr1StateDone（即本函数）执行
-             * 绕这么一圈为的就是执行顺序。
-             */
-            remain--;
-            if (remain === 0) {
-                ShiftColumns(1);
-            }
+            await Promise.all(promises);
+            await ShiftColumns(1);
         }
 
         const unsubscribe = [
             EventBus.subscribe("lr", "AutomatonAppendStates", handleAppendStates),
             EventBus.subscribe("lr", "AutomatonMergeLr1States", handleMergeLr1States),
-            EventBus.subscribe("lr", "AutomatonMergeLr1StateDone", handleMergeLr1StateDone),
         ];
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
 
@@ -495,30 +479,18 @@ export default defineComponent({
             stateItems.value.forEach(item => item.hidden = true);
             lineBlocks.value.forEach(item => item.hidden = true);
             stateItem.hidden = false;
-            stateItem.linesToLeft.forEach((line) => {
-                let lineBlock = lineBlocks.value.get(line)!;
-                lineBlock.hidden = false;
-                let to = stateItems.value.get(lineBlock.to)!;
-                to.hidden = false;
-            });
-            stateItem.linesToRight.forEach((line) => {
-                let lineBlock = lineBlocks.value.get(line)!;
-                lineBlock.hidden = false;
-                let to = stateItems.value.get(lineBlock.to)!;
-                to.hidden = false;
-            });
-            stateItem.linesToSameColumn.forEach((line) => {
-                let lineBlock = lineBlocks.value.get(line)!;
-                lineBlock.hidden = false;
-                let to = stateItems.value.get(lineBlock.to)!;
-                to.hidden = false;
-            });
-            stateItem.linesToSelf.forEach((line) => {
-                let lineBlock = lineBlocks.value.get(line)!;
-                lineBlock.hidden = false;
-                let to = stateItems.value.get(lineBlock.to)!;
-                to.hidden = false;
-            });
+            const showStateFunc = function(lines: Array<number>) {
+                lines.forEach((line) => {
+                    let lineBlock = lineBlocks.value.get(line)!;
+                    lineBlock.hidden = false;
+                    let to = stateItems.value.get(lineBlock.to)!;
+                    to.hidden = false;
+                });
+            }
+            showStateFunc(stateItem.linesToLeft);
+            showStateFunc(stateItem.linesToRight);
+            showStateFunc(stateItem.linesToSameColumn);
+            showStateFunc(stateItem.linesToSelf);
         }
         function handleStateMouseLeave(stateItem: StateItemData) {
             if (stateItem.merged) {
@@ -600,7 +572,7 @@ export default defineComponent({
 
         return {
             stateItems, lineBlocks, displayPanel,
-            stateUpdate, stateRefs,
+            updateState, stateRefs,
             GAP_ARROW, totalHeight, totalWidth,
             handleStateMouseEnter, handleStateMouseLeave,
             handleLineMouseEnter, handleLineMouseLeave,

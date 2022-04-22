@@ -970,7 +970,7 @@ class InteractiveLrParser {
 
     constructor(algo: ParseAlgorithm, rules: Array<Rule>, tokens: Array<Token>, replaceTerminalName: boolean) {
         this.algo = algo;
-        if (replaceTerminalName) {
+        if (!replaceTerminalName) {
             rules.forEach((rule) => {
                 rule.expansion.forEach((sym) => {
                     if (TERMINAL_NAMES_REVERSE[sym.name] !== undefined) {
@@ -1003,9 +1003,6 @@ class InteractiveLrParser {
             }
             rule.origin = saveInSymbolMap(rule.origin);
             rule.expansion.forEach((sym: _Symbol, i: number, arr: _Symbol[]) => {
-                // if (replaceTerminalName && TERMINAL_NAMES_REVERSE[sym.name] !== undefined) {
-                //     sym.name = TERMINAL_NAMES_REVERSE[sym.name];
-                // }
                 arr[i] = saveInSymbolMap(sym);
             });
             PARSER_STORE.ruleIndexMap.set(rule, index);
