@@ -17,6 +17,7 @@ export const useLrStore = defineStore("lr", {
         showControlPanel: false,
         showAutomaton: false,
         showParseTable: false,
+        showParseTree: false,
         stateFlags: {
             0: { active: true, closureDone: false, appended: false }
         } as IStateFlagList,

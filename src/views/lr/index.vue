@@ -14,7 +14,7 @@
             </div>
         </div>
         <ParseTableVue v-if="showParseTable"></ParseTableVue>
-        <ParseTree></ParseTree>
+        <ParseTree v-if="showParseTree"></ParseTree>
     </div>
     <div v-else>
         {{ t("lr.loadingDependecy") }}
@@ -58,6 +58,7 @@ export default defineComponent({
         const showControlPanel = computed(() => lrStore.showControlPanel);
         const showAutomaton = computed(() => lrStore.showAutomaton);
         const showParseTable = computed(() => lrStore.showParseTable);
+        const showParseTree = computed(() => lrStore.showParseTree);
         const automatonLoading = computed(() => lrStore.automatonLoading);
         return {
             t,
@@ -65,6 +66,7 @@ export default defineComponent({
             showControlPanel,
             showAutomaton,
             showParseTable,
+            showParseTree,
             automatonLoading,
         }
     }

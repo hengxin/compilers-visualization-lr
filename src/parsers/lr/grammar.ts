@@ -61,6 +61,19 @@ class Rule {
             data.options.priority ? data.options.priority as number : 0,
         );
     }
+
+    toString() {
+        let str = "";
+        str += this.origin.name + " → "
+        for (let i = 0; i < this.expansion.length; i++) {
+            if (i === 0) {
+                str += this.expansion[i].name;
+            } else {
+                str += " " + this.expansion[i].name;
+            }
+        }
+        return str;
+    }
 }
 
 class Token {

@@ -15,6 +15,8 @@
         <template v-if="automatonStatus === AutomatonStatus.Done">
             <GButton v-show="showCalcParseTableButton" @click="CalcParseTable()">计算语法分析表</GButton>
         </template>
+        <GButton @click="startParse()">StartParse</GButton>
+        <GButton @click="parse()">ParseStep</GButton>
     </div>
 </template>
 <script setup lang="ts">
@@ -130,6 +132,15 @@ async function MergeLr1States() {
 function CalcParseTable() {
     parser.parseTable.calc();
     lrStore.showParseTable = true;
+}
+
+function startParse() {
+    lrStore.showParseTree = true;
+}
+
+function parse() {
+    const res = parser.parseByStep();
+    EventBus.publish("lr", "ParseTreeStep", res);
 }
 
 </script>

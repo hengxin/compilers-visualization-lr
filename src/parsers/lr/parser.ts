@@ -363,7 +363,7 @@ interface StateClosureResult { id: number, closureSteps: Array<Array<LRItem>> }
 interface AppendStateResult { from: number, targets: Array<{ symbol: _Symbol, state: LRItemSet }> }
 interface MergeLr1StatesResult {
     mergeMap: Map<number, number>,
-    transitionChanges: Map<number, Array<{symbol: _Symbol, from: number, to: number}>>,
+    transitionChanges: Map<number, Array<{ symbol: _Symbol, from: number, to: number }>>,
 }
 
 class Automaton {
@@ -510,7 +510,7 @@ class Automaton {
         return { from: stateId, targets: targetArr };
     }
 
-    MergeLookaheads(stateId: number){
+    MergeLookaheads(stateId: number) {
         if (this.states[stateId] === undefined) {
             // throw
         }
@@ -543,7 +543,7 @@ class Automaton {
             }
         }
         const transitionChanges: Map<number,
-            Array<{symbol: _Symbol, from: number, to: number}>> = new Map();
+            Array<{ symbol: _Symbol, from: number, to: number }>> = new Map();
         // 更新合并后项集的transition
         this.states.forEach((state) => {
             // forEach不会导致state出现undefined，因为被delete的会直接跳过
@@ -724,6 +724,7 @@ class ParseTable {
     actionHeader: Array<_Symbol> = [];
     gotoHeader: Array<_Symbol> = [];
     conflict: boolean = false;
+    done: boolean = false;
     private automaton: Automaton;
 
     constructor(automaton: Automaton) {
@@ -824,6 +825,9 @@ class ParseTable {
     }
 
     calc() {
+        if (this.done) {
+            throw new Error();
+        }
         PARSER_STORE.symbolMap.forEach((sym) => {
             if (sym === SYMBOL_START) {
                 return; // continue for-each loop
@@ -880,6 +884,7 @@ class ParseTable {
                 }
             });
         });
+        this.done = true;
     }
 
     get(tableName: "ACTION" | "GOTO", stateId: number, symbol: _Symbol): Action | undefined {
@@ -954,6 +959,16 @@ function first(symbolString: _Symbol[]): Terminal[] {
     return Array.from(result);
 }
 
+interface ParseOperation {
+    action: Action,
+    stateStackDiff: Array<number>,
+    valueStackDiff: Array<Tree>,
+}
+interface ParseStepResult {
+    operations: Array<ParseOperation>,
+    nextToken: Token,
+}
+
 class InteractiveLrParser {
     readonly algo: ParseAlgorithm;
     automaton: Automaton;
@@ -981,6 +996,7 @@ class InteractiveLrParser {
         }
         PARSER_STORE.rules = rules;
         PARSER_STORE.tokens = tokens;
+        PARSER_STORE.tokens.push(new Token(SYMBOL_END.name, SYMBOL_END_NAME, 0, 0, 0, 0, 0, 0));
 
         const saveInSymbolMap = (symbol: _Symbol): _Symbol => {
             if (!PARSER_STORE.symbolMap.has(symbol.name)) {
@@ -1051,12 +1067,17 @@ class InteractiveLrParser {
         this.parseTable.calc();
         return this.parseTable;
     }
-    parseByStep() {
+    parseByStep(): ParseStepResult {
+        if (!this.parseTable.done) {
+            throw new Error();
+        }
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
         let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken.type);
         if (symOfCurrToken === undefined) {
             throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
         }
+        const operations: Array<ParseOperation> = [];
+
         let action = this.parseTable.get("ACTION", stateId, symOfCurrToken);
         if (action === undefined) {
             throw new ParserError(PARSER_EXCEPTION_MSG.UNEXPECTED_TOKEN, this.currentToken.value);
@@ -1064,6 +1085,11 @@ class InteractiveLrParser {
             PARSER_STORE.stateStack.push(action.arg);
             PARSER_STORE.valueStack.push(new Tree(symOfCurrToken, this.currentToken.value));
             this.nextToken();
+            operations.push({
+                action,
+                stateStackDiff: [PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1]],
+                valueStackDiff: [PARSER_STORE.valueStack[PARSER_STORE.valueStack.length - 1]],
+            });
         } else if (action.name === "Reduce") {
             let rule = PARSER_STORE.rules[action.arg];
             let size = rule.expansion.length;
@@ -1073,6 +1099,7 @@ class InteractiveLrParser {
             // 因此使用splice(-size, size)，这样即使size为0，splice的第二个参数也保证了数组不会被清空。
             let statePops = PARSER_STORE.stateStack.splice(-size, size);
             let valuePops = PARSER_STORE.valueStack.splice(-size, size);
+            operations.push({ action, stateStackDiff: statePops, valueStackDiff: valuePops });
             let top = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
             let goto = this.parseTable.get("GOTO", top, rule.origin);
             if (goto === undefined) {
@@ -1080,13 +1107,15 @@ class InteractiveLrParser {
             }
             PARSER_STORE.stateStack.push(goto.arg);
             PARSER_STORE.valueStack.push(new Tree(rule.origin, valuePops));
+            operations.push({
+                action: goto,
+                stateStackDiff: [PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1]],
+                valueStackDiff: [PARSER_STORE.valueStack[PARSER_STORE.valueStack.length - 1]],
+            });
         } else {
             this.done = true;
         }
-        return {
-            stateStack: PARSER_STORE.stateStack,
-            valueStack: PARSER_STORE.valueStack
-        };
+        return { operations, nextToken: this.currentToken };
     }
 
     private nextToken(): Token {
@@ -1101,7 +1130,9 @@ class InteractiveLrParser {
 
 export {
     InteractiveLrParser, LRItem, LRItemSet,
+    Action, Shift, Reduce, Goto, Accept,
     type ParseAlgorithm, type AppendStateResult,
     type MergeLr1StatesResult,
+    type ParseStepResult,
     ParseTable, PARSER_STORE
 };
