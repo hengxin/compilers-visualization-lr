@@ -19,11 +19,11 @@
         </div>
     </div>
     <div class="parse-tree-container">
-        <div class="chart" ref="chartRef"></div>
+        <div class="chart" ref="chartRef" :style="{ width: chartWidth + 'px', height: chartHeight + 'px' }"></div>
     </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import * as echarts from "echarts/core";
 import { TooltipComponent, TooltipComponentOption } from "echarts/components";
 import { TreeChart, TreeSeriesOption } from "echarts/charts";
@@ -36,16 +36,87 @@ const nextToken = ref(parser.currentToken);
 const operations = ref<Array<Action>>([]);
 const stateStack = ref<Array<[symbol, number]>>([[Symbol(), 0]]);
 
-function handleParseTreeStep(step: ParseStepResult) {
+echarts.use([TooltipComponent, TreeChart, SVGRenderer]);
+const chartRef = ref<HTMLDivElement>();
+type ECOption = echarts.ComposeOption<TooltipComponentOption | TreeSeriesOption>;
+const series: Array<TreeSeriesOption> = [];
+const option: ECOption = {
+    series,
+}
+let chart: echarts.ECharts | undefined = undefined;
+onMounted(() => {
+    chart = echarts.init(chartRef.value!);
+    chart.setOption(option)
+});
+
+function generateTreeSeriesOption(data: TreeSeriesOption["data"], left: number, width?: number, height?: number): TreeSeriesOption {
+    return {
+        type: "tree",
+        orient: "vertical",
+        data,
+        left,
+        top: MARGIN,
+        width: width === undefined ? 0 : width,
+        height: height === undefined ? 0 : height,
+        edgeShape: "polyline",
+        initialTreeDepth: -1,
+    };
+}
+
+// 仅用来计算树的高度
+class TreeInfo {
+    children: Array<TreeInfo>;
+    expand: boolean = true;
+    constructor(children?: Array<TreeInfo>) {
+        this.children = children ? children : [];
+    }
+    getDepth(): number {
+        let depth = 0;
+        this.children.forEach((child) => {
+            if (child.expand) {
+                depth = Math.max(depth, child.getDepth() + 1);
+            }
+        });
+        return depth;
+    }
+}
+const treeInfoList: Array<TreeInfo> = [];
+
+const VERTICAL_SEPARATION = 60;
+const HORIZONTAL_SEPARATION = 60;
+const MARGIN = 30;
+
+const chartWidth = ref(MARGIN * 2);
+const chartHeight = ref(MARGIN * 2);
+async function updateChartSize(width: number, height: number) {
+    chartWidth.value = width;
+    chartHeight.value = height;
+    console.log("UpdateChartSize", width, height);
+    await nextTick();
+    chart?.resize();
+}
+
+async function handleParseTreeStep(step: ParseStepResult) {
     console.log(step);
     if (step.operations.length === 1) {
         // Shift
         const op = step.operations[0];
         operations.value.splice(0);
         operations.value.push(op.action);
-        op.stateStackDiff.forEach((value) => {
-            stateStack.value.push([Symbol(), value]);
-        });
+        // Symbol()是为了让key唯一
+        op.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
+
+        const newTree = op.valueStackDiff[0];
+        // 左侧距离
+        let left = series.length * VERTICAL_SEPARATION + MARGIN;
+        series.forEach(option => left += option.width as number);
+        // 新移入的宽度高度都当作0，不需要求。
+        await updateChartSize(left + MARGIN, chartHeight.value);
+        const treeOption = generateTreeSeriesOption(
+            [{ name: newTree.symbol.name, children: [] }], left);
+        series.push(treeOption);
+        treeInfoList.push(new TreeInfo());
+        chart?.setOption(option, true);
     } else if (step.operations.length === 2) {
         // Reduce & Goto
         const opReduce = step.operations[0];
@@ -53,37 +124,40 @@ function handleParseTreeStep(step: ParseStepResult) {
         operations.value.splice(0);
         operations.value.push(opReduce.action, opGoto.action);
         stateStack.value.splice(-opReduce.stateStackDiff.length, opReduce.stateStackDiff.length);
-        opGoto.stateStackDiff.forEach((value) => {
-            stateStack.value.push([Symbol(), value]);
-        });
+        opGoto.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
+
+        const newTree = opGoto.valueStackDiff[0];
+        const children = series.splice(-opReduce.valueStackDiff.length, opReduce.valueStackDiff.length);
+        const childrenData = children.map(series => series.data![0]);
+        // 左侧距离
+        let left = series.length * VERTICAL_SEPARATION + MARGIN;
+        series.forEach(option => left += option.width as number);
+        // 宽度（注意空串的情况）
+        let width = ((children.length > 0 ? children.length : 1) - 1) * VERTICAL_SEPARATION;
+        children.forEach(child => width += child.width as number);
+        // 高度
+        const treeInfoChildren = treeInfoList.splice(-opReduce.valueStackDiff.length, opReduce.valueStackDiff.length);
+        const newTreeInfo = new TreeInfo(treeInfoChildren)
+        treeInfoList.push(newTreeInfo);
+        const depth = newTreeInfo.getDepth();
+        const height = depth * HORIZONTAL_SEPARATION;
+
+        await updateChartSize(left + width + MARGIN, Math.max(chartHeight.value, height + MARGIN * 2));
+        const treeOption = generateTreeSeriesOption([{ name: newTree.symbol.name, children: childrenData }], left, width, height);
+        console.log(left, width, height);
+        series.push(treeOption);
+        chart?.setOption(option, true);
+        // resize();
     } else {
         // TODO ACC
     }
     nextToken.value = step.nextToken;
 }
+
 const unsubscribe = [
     EventBus.subscribe("lr", "ParseTreeStep", handleParseTreeStep),
 ];
 onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
-
-
-
-echarts.use([TooltipComponent, TreeChart, SVGRenderer]);
-type ECOption = echarts.ComposeOption<TooltipComponentOption | TreeSeriesOption>
-
-const chartRef = ref<HTMLDivElement>();
-const option: ECOption = {
-    series: []
-}
-let chart: echarts.ECharts | undefined = undefined;
-onMounted(() => {
-    chart = echarts.init(chartRef.value!);
-    chart.setOption(option)
-});
-function change() {
-    option.series = [];
-    chart?.setOption(option, true);
-}
 </script>
 <style scoped>
 .parse-message-container {
