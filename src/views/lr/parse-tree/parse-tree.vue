@@ -18,17 +18,22 @@
             <div class="stack-block-empty"></div>
         </div>
     </div>
-    <div class="parse-tree-container">
-        <div class="chart" ref="chartRef" :style="{ width: chartWidth + 'px', height: chartHeight + 'px' }"></div>
+    <div class="parse-tree2">
+        <svg :width="totalWidth" :height="totalHeight">
+            <!-- path放在上面是为了不让路径盖住文字 -->
+            <path v-for="treePath in treePathList" :key="treePath.id" :d="treePath.pathStr" class="tree-path"></path>
+            <g v-for="treeNode in treeNodeList" :key="treeNode.id" class="tree-node-group">
+                <circle :cx="treeNode.x" :cy="treeNode.y" :r="RADIUS" class="tree-node-circle">
+                </circle>
+                <text class="tree-node-text" :x="treeNode.x" :y="treeNode.y + TEXT_SHIFT_Y">{{ treeNode.symbol.name
+                }}</text>
+            </g>
+        </svg>
     </div>
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
-import * as echarts from "echarts/core";
-import { TooltipComponent, TooltipComponentOption } from "echarts/components";
-import { TreeChart, TreeSeriesOption } from "echarts/charts";
-import { SVGRenderer } from "echarts/renderers";
-import { GetParser, ParseStepResult, Action } from "@/parsers/lr";
+import { GetParser, ParseStepResult, Action, Tree, _Symbol } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 
 const parser = GetParser();
@@ -36,64 +41,96 @@ const nextToken = ref(parser.currentToken);
 const operations = ref<Array<Action>>([]);
 const stateStack = ref<Array<[symbol, number]>>([[Symbol(), 0]]);
 
-echarts.use([TooltipComponent, TreeChart, SVGRenderer]);
-const chartRef = ref<HTMLDivElement>();
-type ECOption = echarts.ComposeOption<TooltipComponentOption | TreeSeriesOption>;
-const series: Array<TreeSeriesOption> = [];
-const option: ECOption = {
-    series,
-}
-let chart: echarts.ECharts | undefined = undefined;
-onMounted(() => {
-    chart = echarts.init(chartRef.value!);
-    chart.setOption(option)
-});
-
-function generateTreeSeriesOption(data: TreeSeriesOption["data"], left: number, width?: number, height?: number): TreeSeriesOption {
-    return {
-        type: "tree",
-        orient: "vertical",
-        data,
-        left,
-        top: MARGIN,
-        width: width === undefined ? 0 : width,
-        height: height === undefined ? 0 : height,
-        edgeShape: "polyline",
-        initialTreeDepth: -1,
-    };
-}
-
-// 仅用来计算树的高度
-class TreeInfo {
-    children: Array<TreeInfo>;
-    expand: boolean = true;
-    constructor(children?: Array<TreeInfo>) {
+const VERTICAL_GAP = 60, HORIZONTAL_GAP = 60;
+const RADIUS = 8;
+const TEXT_SHIFT_Y = 20;
+const MARGIN = 30, PRESERVE = 200;
+const totalWidth = ref(PRESERVE);
+const totalHeight = ref(PRESERVE);
+class TreeData {
+    id: symbol = Symbol();
+    children: Array<TreeData>;
+    symbol: _Symbol;
+    value: string;
+    x: number;
+    y: number;
+    path: TreePath | undefined;
+    constructor(parseTree: Tree, x: number, y: number, children?: Array<TreeData>) {
+        this.symbol = parseTree.symbol;
+        this.value = parseTree.value;
+        this.x = x;
+        this.y = y;
         this.children = children ? children : [];
     }
-    getDepth(): number {
-        let depth = 0;
-        this.children.forEach((child) => {
-            if (child.expand) {
-                depth = Math.max(depth, child.getDepth() + 1);
+    private shift(offsetY: number, depth: number): void {
+        this.y += offsetY;
+        this.shiftChildren(offsetY, depth);
+        if (this.path !== undefined) {
+            this.drawPath();
+        }
+    }
+    shiftChildren(offsetY: number, depth: number = 0): void {
+        if (this.children.length === 0) {
+            totalHeight.value = Math.max(totalHeight.value, depth * HORIZONTAL_GAP + PRESERVE);
+        }
+        this.children.forEach(child => child.shift(offsetY, depth + 1));
+    }
+    drawPath() {
+        if (this.children.length === 0) {
+            return;
+        }
+        if (this.path === undefined) {
+            this.path = new TreePath();
+            treePathList.value.push(this.path);
+        }
+        const childrenXList = this.children.map(child => child.x);
+        const childrenY = this.children[0].y;
+        const forkY = Math.floor((this.y + childrenY) / 2);
+        let pathStr = `M ${this.x} ${this.y + RADIUS} V ${forkY}`;
+        for (let i = 0; i < childrenXList.length; i++) {
+            pathStr += `M ${childrenXList[i]} ${forkY} V ${childrenY - RADIUS}`;
+            if (i !== childrenXList.length - 1) {
+                pathStr += `M ${childrenXList[i]} ${forkY} H ${childrenXList[i + 1]}`;
             }
-        });
-        return depth;
+        }
+        this.path.pathStr = pathStr;
     }
 }
-const treeInfoList: Array<TreeInfo> = [];
+class TreePath {
+    id: symbol = Symbol();
+    pathStr: string = "";
+}
 
-const VERTICAL_SEPARATION = 60;
-const HORIZONTAL_SEPARATION = 60;
-const MARGIN = 30;
+const treeNodeList = ref<Array<TreeData>>([]);
+const treeList: Array<TreeData> = [];
+const treePathList = ref<Array<TreePath>>([]);
+let right = MARGIN - VERTICAL_GAP;
 
-const chartWidth = ref(MARGIN * 2);
-const chartHeight = ref(MARGIN * 2);
-async function updateChartSize(width: number, height: number) {
-    chartWidth.value = width;
-    chartHeight.value = height;
-    console.log("UpdateChartSize", width, height);
-    await nextTick();
-    chart?.resize();
+function addTree(parseTree: Tree) {
+    let x = right + VERTICAL_GAP;
+    right = x;
+    totalWidth.value = right + PRESERVE;
+    const treeData = new TreeData(parseTree, x, MARGIN);
+    treeNodeList.value.push(treeData);
+    treeList.push(treeData);
+}
+
+function mergeTree(root: Tree, numOfChildren: number) {
+    const children = treeList.splice(-numOfChildren, numOfChildren);
+    let x = 0;
+    if (children.length > 0) {
+        x = Math.floor((children[0].x + children[children.length - 1].x) / 2);
+    } else {
+        x = right + VERTICAL_GAP;
+        right = x;
+    }
+    const treeData = new TreeData(root, x, MARGIN, children);
+    treeNodeList.value.push(treeData);
+    // 这里直接改treeData而没有从ref.value改也能生效，估计是因为push导致的渲染实际上是在nexttick执行的。
+    treeData.shiftChildren(HORIZONTAL_GAP);
+    treeList.push(treeData);
+
+    treeData.drawPath();
 }
 
 async function handleParseTreeStep(step: ParseStepResult) {
@@ -105,18 +142,8 @@ async function handleParseTreeStep(step: ParseStepResult) {
         operations.value.push(op.action);
         // Symbol()是为了让key唯一
         op.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
-
         const newTree = op.valueStackDiff[0];
-        // 左侧距离
-        let left = series.length * VERTICAL_SEPARATION + MARGIN;
-        series.forEach(option => left += option.width as number);
-        // 新移入的宽度高度都当作0，不需要求。
-        await updateChartSize(left + MARGIN, chartHeight.value);
-        const treeOption = generateTreeSeriesOption(
-            [{ name: newTree.symbol.name, children: [] }], left);
-        series.push(treeOption);
-        treeInfoList.push(new TreeInfo());
-        chart?.setOption(option, true);
+        addTree(newTree);
     } else if (step.operations.length === 2) {
         // Reduce & Goto
         const opReduce = step.operations[0];
@@ -125,29 +152,8 @@ async function handleParseTreeStep(step: ParseStepResult) {
         operations.value.push(opReduce.action, opGoto.action);
         stateStack.value.splice(-opReduce.stateStackDiff.length, opReduce.stateStackDiff.length);
         opGoto.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
-
         const newTree = opGoto.valueStackDiff[0];
-        const children = series.splice(-opReduce.valueStackDiff.length, opReduce.valueStackDiff.length);
-        const childrenData = children.map(series => series.data![0]);
-        // 左侧距离
-        let left = series.length * VERTICAL_SEPARATION + MARGIN;
-        series.forEach(option => left += option.width as number);
-        // 宽度（注意空串的情况）
-        let width = ((children.length > 0 ? children.length : 1) - 1) * VERTICAL_SEPARATION;
-        children.forEach(child => width += child.width as number);
-        // 高度
-        const treeInfoChildren = treeInfoList.splice(-opReduce.valueStackDiff.length, opReduce.valueStackDiff.length);
-        const newTreeInfo = new TreeInfo(treeInfoChildren)
-        treeInfoList.push(newTreeInfo);
-        const depth = newTreeInfo.getDepth();
-        const height = depth * HORIZONTAL_SEPARATION;
-
-        await updateChartSize(left + width + MARGIN, Math.max(chartHeight.value, height + MARGIN * 2));
-        const treeOption = generateTreeSeriesOption([{ name: newTree.symbol.name, children: childrenData }], left, width, height);
-        console.log(left, width, height);
-        series.push(treeOption);
-        chart?.setOption(option, true);
-        // resize();
+        mergeTree(newTree, opReduce.valueStackDiff.length);
     } else {
         // TODO ACC
     }
@@ -221,8 +227,54 @@ onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
     }
 }
 
-.chart {
-    width: 500px;
-    height: 500px;
+.tree-node-group {
+    animation: fade-in 0.5s;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.tree-node-circle {
+    stroke: var(--color-klein-blue);
+    stroke-width: 2;
+    fill: none;
+    transition: all 0.5s;
+}
+
+.tree-node-text {
+    text-anchor: middle;
+    font-size: 12px;
+    font-weight: bold;
+    stroke: yellow;
+    stroke-width: 2;
+    fill: black;
+    paint-order: stroke fill;
+    transition: all 0.5s;
+}
+
+.tree-path {
+    stroke: red;
+    stroke-width: 1;
+    fill: none;
+    transition: all 0.5s;
+    animation: 0.8s line-move;
+}
+
+@keyframes line-move {
+    from {
+        stroke-dasharray: 0, 10;
+        stroke-dashoffset: 50;
+    }
+    to {
+        stroke-dasharray: 10, 0;
+        stroke-dashoffset: 0;
+    }
 }
 </style>
