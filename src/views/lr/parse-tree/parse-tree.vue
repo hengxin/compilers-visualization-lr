@@ -21,9 +21,12 @@
     <div class="parse-tree2">
         <svg :width="totalWidth" :height="totalHeight">
             <!-- path放在上面是为了不让路径盖住文字 -->
-            <path v-for="treePath in treePathList" :key="treePath.id" :d="treePath.pathStr" class="tree-path"></path>
-            <g v-for="treeNode in treeNodeList" :key="treeNode.id" class="tree-node-group">
-                <circle :cx="treeNode.x" :cy="treeNode.y" :r="RADIUS" class="tree-node-circle">
+            <path v-for="treePath in treePathList" :key="treePath.id" :d="treePath.pathStr" class="tree-path"
+                v-show="treePath.visible"></path>
+            <g v-for="treeNode in treeNodeList" :key="treeNode.id" class="tree-node-group" v-show="treeNode.visible">
+                <circle :cx="treeNode.x" :cy="treeNode.y" :r="RADIUS"
+                    :class="['tree-node-circle', treeNode.expand ? '' : 'tree-node-solid']"
+                    @click="treeNode.changeExpand()">
                 </circle>
                 <text class="tree-node-text" :x="treeNode.x" :y="treeNode.y + TEXT_SHIFT_Y">{{ treeNode.symbol.name
                 }}</text>
@@ -55,6 +58,8 @@ class TreeData {
     x: number;
     y: number;
     path: TreePath | undefined;
+    expand: boolean = true;
+    visible: boolean = true;
     constructor(parseTree: Tree, x: number, y: number, children?: Array<TreeData>) {
         this.symbol = parseTree.symbol;
         this.value = parseTree.value;
@@ -95,10 +100,30 @@ class TreeData {
         }
         this.path.pathStr = pathStr;
     }
+    private changeExpandShow(val: boolean) {
+        this.visible = val;
+        // show改为false就直接把所有子节点都改
+        // 改为true的话要看当前节点是否展开，展开才改子节点。
+        if (!val || this.expand) {
+            if (this.path) {
+                this.path.visible = val;
+            }
+            this.children.forEach(child => child.changeExpandShow(val));
+        }
+    }
+    changeExpand() {
+        const newValue = !this.expand;
+        this.expand = newValue;
+        if (this.path) {
+            this.path.visible = newValue;
+        }
+        this.children.forEach(child => child.changeExpandShow(newValue));
+    }
 }
 class TreePath {
     id: symbol = Symbol();
     pathStr: string = "";
+    visible: boolean = true;
 }
 
 const treeNodeList = ref<Array<TreeData>>([]);
@@ -244,8 +269,12 @@ onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
 .tree-node-circle {
     stroke: var(--color-klein-blue);
     stroke-width: 2;
-    fill: none;
+    fill: white;
     transition: all 0.5s;
+}
+
+.tree-node-solid {
+    fill: var(--color-klein-blue);
 }
 
 .tree-node-text {
@@ -257,6 +286,7 @@ onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
     fill: black;
     paint-order: stroke fill;
     transition: all 0.5s;
+    user-select: none;
 }
 
 .tree-path {
@@ -272,6 +302,7 @@ onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
         stroke-dasharray: 0, 10;
         stroke-dashoffset: 50;
     }
+
     to {
         stroke-dasharray: 10, 0;
         stroke-dashoffset: 0;
