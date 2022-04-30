@@ -4,3 +4,4 @@ export { default as GTextarea } from "./Textarea.vue";
 export { default as GArrow } from "./Arrow.vue";
 export { notify as GNotification} from "./notification";
 export { default as GSwitch } from "./Switch.vue";
+export { default as GWindow } from "./Window.vue";
