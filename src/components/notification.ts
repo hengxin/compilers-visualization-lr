@@ -50,4 +50,4 @@ function notify(param: NotificationParam) {
     notifications.push(vm);
 }
 
-export { NotificationType, notify };
+export { type NotificationType, notify };
