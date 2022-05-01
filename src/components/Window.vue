@@ -1,8 +1,8 @@
 <template>
     <div class="__g-window" ref="windowRef"
-        :style="state.maximized ? { top: 0, bottom: 0, left: 0, right: 0, position: 'fixed' } :
+        :style="state.maximized ? { top: 0, bottom: 0, left: 0, right: 0, position: 'fixed', zIndex: state.zIndex } :
     (state.pinned ? { height: state.minimized ? '28px' : props.height, width: props.width } :
-        { width: state.width, height: state.minimized ? '28px' : state.height, top: state.top, left: state.left, position: 'fixed' })">
+        { width: state.width, height: state.minimized ? '28px' : state.height, top: state.top, left: state.left, position: 'fixed', zIndex: state.zIndex })">
         <div class="__g-window-bar" ref="barRef">
             <span class="__g-window-bar-title">{{ title }}</span>
             <span class="__g-window-bar-button" ref="minimizeBtn" @click="changeMinimized()">
@@ -42,7 +42,8 @@
 // });
 </script>
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { getCurrentInstance, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { registerWindowInstance, unregisterWindowInstance, getNewZIndex } from "./window";
 
 const props = defineProps<{ title: string, width?: string, height?: string }>();
 const windowRef = ref<HTMLDivElement>();
@@ -61,7 +62,10 @@ const resizeAreaSE = ref<HTMLDivElement>();
 const resizeAreaSW = ref<HTMLDivElement>();
 const MIN_SIZE = 300;
 
+const internalInstance = getCurrentInstance();
+const [windowId, zIndex] = registerWindowInstance(internalInstance!);
 onMounted(() => {
+    windowRef.value?.addEventListener("mousedown", refreshZIndex);
     barRef.value?.addEventListener("mousedown", startDrag);
     // 两个按钮阻止冒泡，是为了防止触发startDrag。
     minimizeBtn.value?.addEventListener("mousedown", ev => ev.stopPropagation());
@@ -81,6 +85,9 @@ onMounted(() => {
     resizeAreaSE.value?.addEventListener("mousedown", (ev) => resizeAreaTouch(ev, "se"));
     resizeAreaSW.value?.addEventListener("mousedown", (ev) => resizeAreaTouch(ev, "sw"));
 });
+onUnmounted(() => {
+    unregisterWindowInstance(windowId);
+});
 
 type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw" | "";
 const state = reactive({
@@ -91,6 +98,7 @@ const state = reactive({
     top: "",
     width: "",
     height: "",
+    zIndex: zIndex,
 });
 const mem = {
     left: 0,
@@ -105,11 +113,17 @@ const mouseState = {
     direction: "" as Direction,
 };
 
+function refreshZIndex() {
+    if (state.pinned) return;
+    state.zIndex = getNewZIndex(state.zIndex);
+}
+
 function changeMinimized() {
     state.minimized = !state.minimized;
     if (state.maximized) {
         state.maximized = false;
     }
+    refreshZIndex();
 }
 
 function changeMaximized() {
@@ -117,6 +131,10 @@ function changeMaximized() {
     if (state.minimized) {
         state.minimized = false;
     }
+    if (!state.maximized) {
+        avoidOutOfBound();
+    }
+    refreshZIndex();
 }
 
 function changePinned() {
@@ -143,8 +161,10 @@ function changePinned() {
         state.top = mem.top + "px";
         state.width = mem.width + "px";
         state.height = mem.height + "px";
+        avoidOutOfBound();
     }
     state.pinned = newPinnedState;
+    refreshZIndex();
 }
 
 function mousedown(ev: MouseEvent) {
@@ -223,10 +243,21 @@ function resize(ev: MouseEvent) {
     else if (mouseState.direction === "s") { s(); }
     else if (mouseState.direction === "w") { w(); }
 }
+function avoidOutOfBound() {
+    if (state.pinned || state.maximized) return;
+    if (mem.top >= document.body.scrollHeight - 100) {
+        mem.top = document.body.scrollHeight - 100;
+    }
+    if (mem.left >= document.body.scrollWidth - 100) {
+        mem.left = document.body.scrollWidth - 100;
+    }
+    state.top = mem.top + "px";
+    state.left = mem.left + "px";
+}
+defineExpose({ avoidOutOfBound });
 </script>
 <style>
 .__g-window {
-    z-index: 10;
     border: 2px var(--color-klein-blue) solid;
     position: relative;
     background-color: white;
