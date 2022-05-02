@@ -1,11 +1,11 @@
 <template>
     <div :class="['__g-switch', disabled ? '__g-switch-disabled' : '']" @click="switchChange()">
-        <span v-if="inactiveText">{{ inactiveText }}</span>
+        <span class="__g-switch-text __g-switch-text-l" v-if="inactiveText">{{ inactiveText }}</span>
         <span :class="['__g-switch-core', modelValue ? '__g-switch-core-active' : '__g-switch-core-inactive']">
             <div :class="['__g-switch-circle', modelValue ? '__g-switch-circle-active' : '__g-switch-circle-inactive']">
             </div>
         </span>
-        <span v-if="activeText">{{ activeText }}</span>
+        <span class="__g-switch-text __g-switch-text-r" v-if="activeText">{{ activeText }}</span>
     </div>
 </template>
 <script lang="ts">
@@ -70,5 +70,17 @@ export default defineComponent({
 }
 .__g-switch-circle-inactive {
     left: 2px;
+}
+
+.__g-switch-text {
+    font-size: 14px;
+}
+
+.__g-switch-text-l {
+    margin-right: 4px;
+}
+
+.__g-switch-text-r {
+    margin-left: 4px;
 }
 </style>

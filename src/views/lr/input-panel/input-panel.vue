@@ -4,20 +4,17 @@
             <template v-if="!started">
                 <GRadioButtonGroup v-model="algorithm" :options="algos"></GRadioButtonGroup>
                 <GSwitch v-model="replaceTerminalName" active-text="替换字符" inactive-text="保留字符"></GSwitch>
-                <GButton @click="parse()">Parse{{ algorithm }}</GButton>
-            </template>
-            <template v-else>
-                <GButton @click="reset()">Reset</GButton>
+                <GButton @click="parse()" type="success">Parse</GButton>
             </template>
         </div>
         <div class="input-panel" v-if="!started">
             <div class="grammar-input panel-item">
-                <GTextarea resize="none" v-model="grammar" :rows="15"
+                <GTextarea class="input-textarea" resize="none" v-model="grammar"
                     :placeholder="t('ControlInputPanel.InputGrammarPlaceholder')" style="font-family: 'Cascadia Mono';">
                 </GTextarea>
             </div>
             <div class="text-input panel-item">
-                <GTextarea resize="none" v-model="text" :rows="15"
+                <GTextarea class="input-textarea" resize="none" v-model="text"
                     :placeholder="t('ControlInputPanel.InputTextPlaceholder')" style="font-family: 'Cascadia Mono';">
                 </GTextarea>
             </div>
@@ -33,13 +30,10 @@
                 </div>
             </div>
         </div>
-        <div class="fold" v-if="started">
-            <GArrow class="fold-arrow" direction="down"></GArrow>
-        </div>
     </div>
 </template>
 <script lang="ts">
-import { ref, defineComponent, PropType, watch } from "vue";
+import { ref, defineComponent, watch, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useLrStore } from "@/stores";
@@ -48,6 +42,7 @@ import { InitParser, GetParser, ParseAlgorithm, Token, Rule } from "@/parsers/lr
 import RuleLine from "./rule-line.vue";
 import TokenLine from "./token-line.vue";
 import examples from "./examples";
+import EventBus from "@/utils/eventbus";
 
 export default defineComponent({
     components: {
@@ -123,7 +118,7 @@ export default defineComponent({
             }
         }
 
-        function reset() {
+        function handleReset() {
             grammar.value = "";
             text.value = "";
             ruleList.value = [];
@@ -132,9 +127,14 @@ export default defineComponent({
             lrStore.showControlPanel = false;
             lrStore.showAutomaton = false;
             lrStore.showParseTable = false;
+            lrStore.showParseTree = false;
         }
+
+        const unsubscribe = [EventBus.subscribe("lr", "Reset", handleReset)];
+        onUnmounted(() => unsubscribe.forEach(fn => fn()));
+
         return {
-            t, parse, reset,
+            t, parse,
             replaceTerminalName,
             grammar, text, algos, algorithm, ruleList, tokenLineList, started
         };
@@ -144,31 +144,41 @@ export default defineComponent({
 
 <style scoped>
 .panel-container {
-    padding: 0 8px;
-    border: 2px var(--color-klein-blue) solid;
+    padding: 8px;
     border-top: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
 }
 
 .control-panel {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    align-items: center;
     top: 16px;
+}
+
+.input-panel {
+    margin-top: 8px;
 }
 
 .input-panel,
 .token-rule-panel {
+    flex-grow: 1;
     display: flex;
     flex-direction: row;
     width: 100%;
-    margin: 8px 0;
+}
+
+.input-textarea {
+    height: 100%;
 }
 
 .rule-panel,
 .token-panel {
     border: 1px gainsboro solid;
     overflow: auto;
-    max-height: 400px;
 }
 
 .token-line-container {
@@ -193,9 +203,5 @@ export default defineComponent({
 
 .token-line:last-child {
     margin-bottom: 0;
-}
-
-.fold-arrow {
-    margin: 0 auto;
 }
 </style>

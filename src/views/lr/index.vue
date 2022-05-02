@@ -1,20 +1,28 @@
 <template>
     <div v-if="larkLoaded">
-        <InputPanel></InputPanel>
+        <GWindow class="panel-window" title="Input Panel" height="400px">
+            <InputPanel></InputPanel>
+        </GWindow>
         <ControlPanel v-if="showControlPanel"></ControlPanel>
-        <div class="panel-container" v-if="showAutomaton">
+        <GWindow class="panel-window" title="Automaton" height="80vh" v-if="showAutomaton">
             <Automaton></Automaton>
-            <div class="automaton-loading-mask" v-if="automatonLoading">
-                <!-- <div class="loading">
-                    <svg class="loading-svg">
-                        <circle class="loading-circle" cx="22" cy="22" r="20"></circle>
-                    </svg>
-                </div> -->
-                <div class="loading">正在加载...</div>
-            </div>
-        </div>
-        <ParseTableVue v-if="showParseTable"></ParseTableVue>
-        <ParseTree v-if="showParseTree"></ParseTree>
+            <!-- <div class="panel-container">
+                <div class="automaton-loading-mask" v-if="automatonLoading">
+                    <div class="loading">
+                        <svg class="loading-svg">
+                            <circle class="loading-circle" cx="22" cy="22" r="20"></circle>
+                        </svg>
+                    </div>
+                    <div class="loading">正在加载...</div>
+                </div>
+            </div> -->
+        </GWindow>
+        <GWindow class="panel-window" title="Parse Table" v-if="showParseTable">
+            <ParseTableVue></ParseTableVue>
+        </GWindow>
+        <GWindow class="panel-window" title="Parse Tree" v-if="showParseTree">
+            <ParseTree></ParseTree>
+        </GWindow>
     </div>
     <div v-else>
         {{ t("lr.loadingDependecy") }}
@@ -27,6 +35,7 @@ import { ref, defineComponent, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLrStore } from "@/stores";
 import { LoadDependency } from "@/parsers/lr"
+import { GWindow } from "@/components";
 
 import InputPanel from "./input-panel/input-panel.vue";
 import ControlPanel from "./control-panel/control-panel.vue";
@@ -40,7 +49,8 @@ export default defineComponent({
         ControlPanel,
         Automaton,
         ParseTableVue,
-        ParseTree
+        ParseTree,
+        GWindow,
     },
     props: { algo: { type: String } },
     setup(props) {
@@ -74,6 +84,14 @@ export default defineComponent({
 
 </script>
 <style scoped>
+.panel-window {
+    margin-bottom: 4px;
+}
+
+.panel-window:last-child {
+    margin-bottom: 0;
+}
+
 .panel-container {
     position: relative;
 }

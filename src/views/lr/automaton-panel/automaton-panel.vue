@@ -586,8 +586,7 @@ export default defineComponent({
 .automaton-display-panel {
     overflow: auto;
     width: 100%;
-    height: 80vh;
-    border: 4px black solid;
+    height: 100%;
     user-select: none;
     position: relative;
     font-size: 12px;

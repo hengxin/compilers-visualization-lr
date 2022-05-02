@@ -77,7 +77,7 @@ export default defineComponent({
 .notification-inner {
     padding: 8px;
     max-height: 400px;
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 .notification-type-primary {
     background-color: var(--color-primary-light);

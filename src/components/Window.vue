@@ -2,7 +2,8 @@
     <div class="__g-window" ref="windowRef"
         :style="state.maximized ? { top: 0, bottom: 0, left: 0, right: 0, position: 'fixed', zIndex: state.zIndex } :
     (state.pinned ? { height: state.minimized ? '28px' : props.height, width: props.width } :
-        { width: state.width, height: state.minimized ? '28px' : state.height, top: state.top, left: state.left, position: 'fixed', zIndex: state.zIndex })">
+        { width: state.width, height: state.minimized ? '28px' : state.height, top: state.top, left: state.left,
+            position: 'fixed', zIndex: state.zIndex, boxShadow: '0 0 8px gray' })">
         <div class="__g-window-bar" ref="barRef">
             <span class="__g-window-bar-title">{{ title }}</span>
             <span class="__g-window-bar-button" ref="minimizeBtn" @click="changeMinimized()">
@@ -42,7 +43,7 @@
 // });
 </script>
 <script setup lang="ts">
-import { getCurrentInstance, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { getCurrentInstance, onMounted, onUnmounted, reactive, ref, StyleValue } from 'vue';
 import { registerWindowInstance, unregisterWindowInstance, getNewZIndex } from "./window";
 
 const props = defineProps<{ title: string, width?: string, height?: string }>();
@@ -161,9 +162,9 @@ function changePinned() {
         state.top = mem.top + "px";
         state.width = mem.width + "px";
         state.height = mem.height + "px";
-        avoidOutOfBound();
     }
     state.pinned = newPinnedState;
+    avoidOutOfBound();
     refreshZIndex();
 }
 
@@ -258,6 +259,7 @@ defineExpose({ avoidOutOfBound });
 </script>
 <style>
 .__g-window {
+    z-index: 0;
     border: 2px var(--color-klein-blue) solid;
     position: relative;
     background-color: white;

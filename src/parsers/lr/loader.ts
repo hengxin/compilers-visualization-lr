@@ -2,6 +2,7 @@ import { GetPyodide, LoadPyodide } from "@/utils/pyodide";
 import { InteractiveLrParser, ParseAlgorithm, Rule, Token } from "@/parsers/lr";
 
 async function LoadDependency(callback: (s: string) => void) {
+    callback("Loading Pyodide...");
     const pyodide = await LoadPyodide(callback)
     if (pyodide === undefined) {
         throw new Error();

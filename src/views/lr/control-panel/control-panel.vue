@@ -1,5 +1,6 @@
 <template>
     <div class="control-panel">
+        <template v-if="parserStatus === ParserStatus.Automaton">
         <template v-if="automatonStatus === AutomatonStatus.Calculate">
         <!-- 自动机控制面板 -->
             <div>当前操作状态：<span>I{{ currentStateId }}</span></div>
@@ -15,8 +16,16 @@
         <template v-if="automatonStatus === AutomatonStatus.Done">
             <GButton v-show="showCalcParseTableButton" @click="CalcParseTable()">计算语法分析表</GButton>
         </template>
-        <GButton @click="startParse()">StartParse</GButton>
-        <GButton @click="parse()">ParseStep</GButton>
+        </template>
+
+        <template v-if="parserStatus === ParserStatus.ParseTable">
+            <GButton @click="startParse()">StartParse</GButton>
+        </template>
+
+        <template v-if="parserStatus === ParserStatus.ParseTree">
+            <GButton @click="parse()">ParseStep</GButton>
+        </template>
+        <GButton @click="reset()" type="error">Reset</GButton>
     </div>
 </template>
 <script setup lang="ts">
@@ -42,6 +51,12 @@ enum AutomatonStatus {
     Calculate, Merge, Done
 }
 const automatonStatus = ref(AutomatonStatus.Calculate);
+
+enum ParserStatus {
+    Automaton, ParseTable, ParseTree,
+}
+const parserStatus = ref(ParserStatus.Automaton);
+
 const showCalcClosureButton = computed(() => 
     manual.value || (!lrStore.stateFlags[currentStateId.value].closureDone && automatonStatus.value === AutomatonStatus.Calculate));
 const showAppendStatesButton = computed(() => {
@@ -131,10 +146,12 @@ async function MergeLr1States() {
 
 function CalcParseTable() {
     parser.parseTable.calc();
+    parserStatus.value = ParserStatus.ParseTable;
     lrStore.showParseTable = true;
 }
 
 function startParse() {
+    parserStatus.value = ParserStatus.ParseTree;
     lrStore.showParseTree = true;
 }
 
@@ -143,13 +160,19 @@ function parse() {
     EventBus.publish("lr", "ParseTreeStep", res);
 }
 
+function reset() {
+    EventBus.publish("lr", "Reset");
+}
+
 </script>
 <style scoped>
 .control-panel {
     display: flex;
     flex-direction: row;
-    position: sticky;
-    top: 10px;
+    position: fixed;
+    left: 48px;
+    right: 48px;
+    bottom: 48px;
     align-items: center;
     background-color: white;
     border: 2px var(--color-klein-blue) solid;

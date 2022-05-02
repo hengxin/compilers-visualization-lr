@@ -33,12 +33,12 @@ onErrorCaptured((err, instance, info) => {
     color: aliceblue;
 }
 .content {
-    min-height: calc(100vh - 80px);
+    min-height: calc(100vh - 64px);
     width: 100%;
-    padding: 32px;
+    padding: 16px;
 }
 .footer {
-    height: 32px;
+    height: 16px;
 }
 </style>
 <style>
