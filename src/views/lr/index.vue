@@ -1,9 +1,10 @@
 <template>
     <template v-if="larkLoaded">
-        <GWindow class="panel-window" title="Input Panel" :default-style="{ height: '400px' }">
+        <GWindow class="panel-window" title="Input Panel" :default-style="{ height: '400px' }" position="absolute">
             <InputPanel></InputPanel>
         </GWindow>
-        <GWindow class="panel-window" title="Automaton" :default-style="{ height: '80vh' }" v-if="showAutomaton">
+        <GWindow class="panel-window" title="Automaton" :default-style="{ height: '80vh' }" position="absolute"
+            v-if="showAutomaton">
             <Automaton></Automaton>
             <!-- <div class="panel-container">
                 <div class="automaton-loading-mask" v-if="automatonLoading">
@@ -16,11 +17,13 @@
                 </div>
             </div> -->
         </GWindow>
-        <GWindow class="panel-window" title="Parse Table" :default-style="{ width: 'fit-content', height: 'fit-content', maxWidth: '100%'}"
+        <GWindow class="panel-window" title="Parse Table"
+            :default-style="{ width: 'fit-content', height: 'fit-content', maxWidth: '100%' }" position="absolute"
             v-if="showParseTable">
             <ParseTableVue></ParseTableVue>
         </GWindow>
-        <GWindow class="panel-window" title="Parse Tree" :default-style="{ height: '80vh' }" v-if="showParseTree">
+        <GWindow class="panel-window" title="Parse Tree" :default-style="{ height: '80vh' }" position="absolute"
+            v-if="showParseTree">
             <ParseTree></ParseTree>
         </GWindow>
         <ControlPanel v-if="showControlPanel"></ControlPanel>

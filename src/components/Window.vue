@@ -3,7 +3,7 @@
         :style="state.maximized ? { top: 0, bottom: 0, left: 0, right: 0, position: 'fixed', zIndex: state.zIndex } :
         (state.pinned ? (state.minimized ? {...defaultStyle, height: '28px'} : defaultStyle) :
         { width: state.width, height: state.minimized ? '28px' : state.height, top: state.top, left: state.left,
-            position: 'absolute', zIndex: state.zIndex, boxShadow: '0 0 8px gray' })">
+            position, zIndex: state.zIndex, boxShadow: '0 0 8px gray' })">
         <div class="__g-window-bar" ref="barRef">
             <span class="__g-window-bar-title">{{ title }}</span>
             <span class="__g-window-bar-button" ref="minimizeBtn" @click="changeMinimized()">
@@ -144,11 +144,13 @@ function changePinned() {
         if (!mem.inited) {
             let left = windowRef.value!.offsetLeft;
             let top = windowRef.value!.offsetTop;
-            let current = windowRef.value!.offsetParent as HTMLElement;
-            while (current) {
-                left += current.offsetLeft;
-                top += current.offsetTop;
-                current = current.offsetParent as HTMLElement;
+            if (props.position === "fixed") {
+                let current = windowRef.value!.offsetParent as HTMLElement;
+                while (current) {
+                    left += current.offsetLeft;
+                    top += current.offsetTop;
+                    current = current.offsetParent as HTMLElement;
+                }
             }
             mem.left = left;
             mem.top = top;
@@ -244,7 +246,7 @@ function resize(ev: MouseEvent) {
     else if (mouseState.direction === "w") { w(); }
 }
 function avoidOutOfBound() {
-    if (state.pinned || state.maximized) return;
+    if (state.pinned || state.maximized || props.position === "absolute") return;
     console.log(window.innerHeight);
     if (mem.top >= window.innerHeight - 200) {
         mem.top = window.innerHeight - 200;

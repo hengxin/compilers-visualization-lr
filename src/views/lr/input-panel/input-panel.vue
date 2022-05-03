@@ -66,7 +66,7 @@ export default defineComponent({
         "fff": null
     }
 }`);
-        const algos: Array<ParseAlgorithm> = ["LR0", "LR1", "LR0_LALR1", "LR1_LALR1"];
+        const algos: Array<ParseAlgorithm> = ["LR0", "LR1", "LR1_LALR1"];
         const algorithm = ref<ParseAlgorithm>("LR0");
         const replaceTerminalName = ref(false);
         const ruleList = ref<Array<Rule>>([]);

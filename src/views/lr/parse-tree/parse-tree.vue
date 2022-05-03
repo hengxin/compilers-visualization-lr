@@ -1,13 +1,17 @@
 <template>
     <div class="parse-message-container">
         <div class="parse-operations">
-            <div v-for="op in operations">
-                <span>{{ op.abbr }}{{ op.arg }}</span>
-                <span v-if="op.name === 'Reduce'">{{ op.rule.toString() }}</span>
+            <div v-if="operation">
+                <span>{{ operation.abbr }}{{ operation.arg }}</span>
+                <span v-if="operation.name === 'Reduce'">{{ operation.rule.toString() }}</span>
             </div>
         </div>
         <div class="parse-current-token">
-            <div>NextToken:&nbsp;{{ nextToken.type }}({{ nextToken.value }})</div>
+            <div>
+                <span>NextToken:&nbsp;</span>
+                <span v-if="(nextToken instanceof Token)">{{ nextToken.type }}({{ nextToken.value }})</span>
+                <span v-else>{{ (nextToken as Tree).symbol.name }}</span>
+            </div>
         </div>
     </div>
     <div class="parse-stack-container">
@@ -36,12 +40,12 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
-import { GetParser, ParseStepResult, Action, Tree, _Symbol } from "@/parsers/lr";
+import { GetParser, ParseStepResult, Action, Tree, _Symbol, Token } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 
 const parser = GetParser();
-const nextToken = ref(parser.currentToken);
-const operations = ref<Array<Action>>([]);
+const nextToken = ref(parser.current);
+const operation = ref<Action>();
 const stateStack = ref<Array<[symbol, number]>>([[Symbol(), 0]]);
 
 const VERTICAL_GAP = 60, HORIZONTAL_GAP = 60;
@@ -160,29 +164,25 @@ function mergeTree(root: Tree, numOfChildren: number) {
 
 async function handleParseTreeStep(step: ParseStepResult) {
     console.log(step);
-    if (step.operations.length === 1) {
+    if (step.action.name === "Shift") {
         // Shift
-        const op = step.operations[0];
-        operations.value.splice(0);
-        operations.value.push(op.action);
+        operation.value = step.action;
         // Symbol()是为了让key唯一
-        op.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
-        const newTree = op.valueStackDiff[0];
+        step.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
+        const newTree = step.valueStackDiff[0];
         addTree(newTree);
-    } else if (step.operations.length === 2) {
-        // Reduce & Goto
-        const opReduce = step.operations[0];
-        const opGoto = step.operations[1];
-        operations.value.splice(0);
-        operations.value.push(opReduce.action, opGoto.action);
-        stateStack.value.splice(-opReduce.stateStackDiff.length, opReduce.stateStackDiff.length);
-        opGoto.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
-        const newTree = opGoto.valueStackDiff[0];
-        mergeTree(newTree, opReduce.valueStackDiff.length);
+    } else if (step.action.name === "Reduce") {
+        // Reduce
+        operation.value = step.action;
+        stateStack.value.splice(-step.stateStackDiff.length, step.stateStackDiff.length);
+        mergeTree(step.next as Tree, step.valueStackDiff.length);
+    } else if (step.action.name === "Goto") {
+        // Goto
+        step.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
     } else {
         // TODO ACC
     }
-    nextToken.value = step.nextToken;
+    nextToken.value = step.next;
 }
 
 const unsubscribe = [

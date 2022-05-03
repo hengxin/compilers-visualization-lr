@@ -10,42 +10,67 @@
         </tr>
         <tr v-for="row in data">
             <td>{{ row[0] }}</td>
-            <td v-for="action in row[1]">{{ action }}</td>
+            <td v-for="action in row[1]" :class="[action.highlight ? 'grid-highlight' : '']">
+                <span v-for="(a, index) in action.value"
+                    :class="[index === 0 ? 'parse-action' : 'parse-action-unused']">{{ a }}</span>
+            </td>
         </tr>
     </table>
 </template>
 <script lang="ts">
-import { defineComponent } from "vue";
-import { GetParser } from "@/parsers/lr";
+import { defineComponent, onUnmounted, ref } from "vue";
+import { GetParser, _Symbol } from "@/parsers/lr";
+import EventBus from "@/utils/eventbus";
+type ActionGrid = { value: Array<string>, highlight: boolean };
 export default defineComponent({
     setup() {
-        const data: Array<[number, Array<string>]> = [];
+        const data = ref<Array<[number, Array<ActionGrid>]>>([]);
+        const dataMap = ref<Map<number, Map<_Symbol, ActionGrid>>>(new Map());
+        let lastHighlight: { stateId: number, symbol: _Symbol } | undefined = undefined;
         const parser = GetParser();
         parser.parseTable.actionTable.forEach((_, stateId) => {
-            let row: Array<string> = [];
+            let row: Array<ActionGrid> = [];
+            const dataMapInner: Map<_Symbol, ActionGrid> = new Map();
             parser.parseTable.actionHeader.forEach((sym) => {
                 let action = parser.parseTable.actionTable.get(stateId)!.get(sym);
+                let grid: ActionGrid | undefined = undefined;
                 if (action === undefined) {
-                    row.push("");
+                    grid = { value: [], highlight: false };
                 } else {
-                    row.push(action.toString());
+                    grid = { value: action.map(a => a.toString()), highlight: false };
                 }
+                row.push(grid);
+                dataMapInner.set(sym, grid);
             });
             parser.parseTable.gotoHeader.forEach((sym) => {
                 let action = parser.parseTable.gotoTable.get(stateId)!.get(sym);
+                let grid: ActionGrid | undefined = undefined;
                 if (action === undefined) {
-                    row.push("");
+                    grid = { value: [], highlight: false };
                 } else {
-                    row.push(action.toString());
+                    grid = { value: action.map(a => a.toString()), highlight: false };
                 }
+                row.push(grid);
+                dataMapInner.set(sym, grid);
             });
-            data.push([stateId, row]);
+            data.value.push([stateId, row]);
+            dataMap.value.set(stateId, dataMapInner);
         });
-        // for (let i = 0; i < parser.parseTable.actionTable.length; i++) {
-        // }
         const actionHeaderCnt = parser.parseTable.actionHeader.length;
         const gotoHeaderCnt = parser.parseTable.gotoHeader.length;
         const header = [...parser.parseTable.actionHeader, ...parser.parseTable.gotoHeader];
+
+        function setHighlight(actionSource: { stateId: number, symbol: _Symbol }) {
+            if (lastHighlight) {
+                dataMap.value.get(lastHighlight.stateId)!.get(lastHighlight.symbol)!.highlight = false;
+            }
+            dataMap.value.get(actionSource.stateId)!.get(actionSource.symbol)!.highlight = true;
+            lastHighlight = actionSource;
+        }
+
+        const unsubscribe = [EventBus.subscribe("lr", "ParseTableHighlight", setHighlight)];
+        onUnmounted(() => unsubscribe.forEach(fn => fn()));
+
         return { actionHeaderCnt, gotoHeaderCnt, header, data }
     },
 });
@@ -53,6 +78,23 @@ export default defineComponent({
 <style scoped>
 .parse-table {
     font-size: 12px;
+}
+
+.grid-highlight {
+    background-color: gold;
+}
+
+.parse-action {
+    color: black;
+    font-weight: bold;
+}
+
+.parse-action-unused {
+    color: gray;
+}
+
+.parse-action-unused::before {
+    content: ",";
 }
 
 table {

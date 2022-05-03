@@ -1,7 +1,11 @@
 <template>
     <div
         class="state-container"
-        :class="[active ? 'state-active' : '', done ? 'state-done' : '']"
+        :class="[
+            active ? 'state-active' : '',
+            done ? 'state-done' : '',
+            stateItemData.highlight === 'normal' ? '' : 'state-highlight-' + stateItemData.highlight,
+        ]"
         ref="stateContainerRef"
     >
         <div class="state-id">
@@ -36,15 +40,16 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, PropType, ref, onUnmounted, nextTick } from "vue";
+import { computed, defineComponent, PropType, ref, onUnmounted, nextTick } from "vue";
+import { useLrStore } from "@/stores";
 import { LRItem, LRItemSet } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
+import { StateItemData } from "./automaton-panel";
 import LrItemComponent from "./lr-item.vue";
-import { computed } from "@vue/reactivity";
-import { useLrStore } from "@/stores";
 export default defineComponent({
     props: {
         state: { type: Object as PropType<LRItemSet>, required: true },
+        stateItemData: { type: Object as PropType<StateItemData>, required: true },
     },
     emits: ["updateState"],
     components: {
@@ -122,6 +127,19 @@ export default defineComponent({
     border: 3px var(--color-klein-blue) dashed;
     width: fit-content;
 }
+
+.state-highlight-gold {
+    border-color: gold;
+}
+
+.state-highlight-green {
+    border-color: green;
+}
+
+.state-highlight-gray {
+    border-color: saddlebrown;
+}
+
 .state-merged {
     animation: 0.8s twinkle;
 }

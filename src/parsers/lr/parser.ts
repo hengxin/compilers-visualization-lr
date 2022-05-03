@@ -964,15 +964,19 @@ interface ParseOperation {
     stateStackDiff: Array<number>,
     valueStackDiff: Array<Tree>,
 }
-interface ParseStepResult {
-    operations: Array<ParseOperation>,
-    nextToken: Token,
+interface ParseStepResult extends ParseOperation {
+    actionSource: {
+        stateId: number,
+        symbol: _Symbol,
+    },
+    currentStateId: number,
+    next: Token | Tree,
 }
 
 class InteractiveLrParser {
     readonly algo: ParseAlgorithm;
     automaton: Automaton;
-    currentToken: Token;
+    current: Token | Tree;
     parseTable: ParseTable;
     private tokenPtr: number = -1;
     done: boolean = false;
@@ -1029,7 +1033,7 @@ class InteractiveLrParser {
         }
 
         PARSER_STORE.stateStack.push(0);
-        this.currentToken = this.nextToken();
+        this.current = this.nextToken();
     }
 
     /**
@@ -1072,50 +1076,55 @@ class InteractiveLrParser {
             throw new Error();
         }
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
-        let symOfCurrToken = PARSER_STORE.symbolMap.get(this.currentToken.type);
-        if (symOfCurrToken === undefined) {
+        let symOfCurrent = PARSER_STORE.symbolMap.get(
+            (this.current instanceof Token) ? this.current.type : this.current.symbol.name);
+        if (symOfCurrent === undefined) {
             throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
         }
-        const operations: Array<ParseOperation> = [];
+        let operation: ParseOperation | undefined = undefined;
 
-        let action = this.parseTable.get("ACTION", stateId, symOfCurrToken);
+        let action = this.parseTable.get(symOfCurrent.isTerm ? "ACTION" : "GOTO", stateId, symOfCurrent);
         if (action === undefined) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.UNEXPECTED_TOKEN, this.currentToken.value);
+            throw new ParserError(PARSER_EXCEPTION_MSG.UNEXPECTED_TOKEN, this.current.value);
         } else if (action.name === "Shift") {
             PARSER_STORE.stateStack.push(action.arg);
-            PARSER_STORE.valueStack.push(new Tree(symOfCurrToken, this.currentToken.value));
+            PARSER_STORE.valueStack.push(new Tree(symOfCurrent, this.current.value));
             this.nextToken();
-            operations.push({
+            operation = {
                 action,
                 stateStackDiff: [PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1]],
                 valueStackDiff: [PARSER_STORE.valueStack[PARSER_STORE.valueStack.length - 1]],
-            });
+            };
         } else if (action.name === "Reduce") {
             let rule = PARSER_STORE.rules[action.arg];
             let size = rule.expansion.length;
-            // 这两个值可供以后用
             // 特别注意size为0的情况，因为存在产生空串的产生式，此时size为0。
             // 一般来说splice(-size)即可，但如果size为0，则会从数组头部开始splice导致数组被清空！
             // 因此使用splice(-size, size)，这样即使size为0，splice的第二个参数也保证了数组不会被清空。
             let statePops = PARSER_STORE.stateStack.splice(-size, size);
             let valuePops = PARSER_STORE.valueStack.splice(-size, size);
-            operations.push({ action, stateStackDiff: statePops, valueStackDiff: valuePops });
-            let top = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
-            let goto = this.parseTable.get("GOTO", top, rule.origin);
-            if (goto === undefined) {
-                throw new ParserError(PARSER_EXCEPTION_MSG.UNEXPECTED_TOKEN, this.currentToken.value);
-            }
-            PARSER_STORE.stateStack.push(goto.arg);
-            PARSER_STORE.valueStack.push(new Tree(rule.origin, valuePops));
-            operations.push({
-                action: goto,
+            operation = { action, stateStackDiff: statePops, valueStackDiff: valuePops };
+            this.current = new Tree(rule.origin, valuePops);
+        } else if (action.name === "Goto") {
+            PARSER_STORE.stateStack.push(action.arg);
+            PARSER_STORE.valueStack.push(this.current as Tree);
+            this.current = PARSER_STORE.tokens[this.tokenPtr];
+            operation = {
+                action,
                 stateStackDiff: [PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1]],
                 valueStackDiff: [PARSER_STORE.valueStack[PARSER_STORE.valueStack.length - 1]],
-            });
+            };
         } else {
             this.done = true;
+            operation = { action, stateStackDiff: [], valueStackDiff: [] };
         }
-        return { operations, nextToken: this.currentToken };
+
+        return {
+            ...operation,
+            actionSource: { stateId, symbol: symOfCurrent },
+            currentStateId: PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1],
+            next: this.current,
+        };
     }
 
     private nextToken(): Token {
@@ -1123,8 +1132,8 @@ class InteractiveLrParser {
         if (this.tokenPtr >= PARSER_STORE.tokens.length) {
             throw new ParserError(PARSER_EXCEPTION_MSG.TOKEN_LIST_INDEX_OUT_OF_RANGE);
         }
-        this.currentToken = PARSER_STORE.tokens[this.tokenPtr];
-        return this.currentToken;
+        this.current = PARSER_STORE.tokens[this.tokenPtr];
+        return this.current;
     }
 }
 

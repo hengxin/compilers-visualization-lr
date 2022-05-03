@@ -33,7 +33,8 @@ onErrorCaptured((err, instance, info) => {
     color: aliceblue;
 }
 .content {
-    min-height: calc(100vh - 64px);
+    overflow: auto;
+    height: calc(100vh - 64px);
     width: 100%;
     padding: 16px;
     position: relative;

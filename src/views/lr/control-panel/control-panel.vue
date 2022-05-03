@@ -158,6 +158,8 @@ function startParse() {
 function parse() {
     const res = parser.parseByStep();
     EventBus.publish("lr", "ParseTreeStep", res);
+    EventBus.publish("lr", "ParseTableHighlight", res.actionSource);
+    EventBus.publish("lr", "AutomatonStatesPath", res);
 }
 
 function reset() {

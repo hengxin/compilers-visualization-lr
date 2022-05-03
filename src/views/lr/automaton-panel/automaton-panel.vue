@@ -14,7 +14,7 @@
                 @mouseleave="handleStateMouseLeave(item[1])"
                 @click="handleStateClick(item[1])"
             >
-                <StateItem :state="item[1].state" @updateState="updateState"></StateItem>
+                <StateItem :state="item[1].state" :state-item-data="item[1]" @updateState="updateState"></StateItem>
             </div>
             <svg style="position: absolute;top: 0;width: 100%; height: 100%;">
                 <g
@@ -43,7 +43,10 @@
                     ((item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] - GAP_ARROW) + ' ' +
                         item[1].points[item[1].points.length - 1][0] + ',' + item[1].points[item[1].points.length - 1][1] + ' ' +
                         (item[1].points[item[1].points.length - 1][0] - GAP_ARROW) + ',' + (item[1].points[item[1].points.length - 1][1] + GAP_ARROW) + ' '))"
-                        class="state-goto-line"
+                        :class="[
+                            'state-goto-line',
+                            item[1].highlight === 'normal' ? '' : 'state-goto-line-highlight-' + item[1].highlight
+                        ]"
                     />
                 </g>
             </svg>
@@ -55,43 +58,10 @@
 import { defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
 import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
-import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult } from "@/parsers/lr";
+import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult, ParseStepResult } from "@/parsers/lr";
 import { useLrStore } from "@/stores";
-interface StateItemData {
-    state: LRItemSet,
-    // StateItem的位置
-    top: number,
-    left: number,
-    column: number,
-    linesIn: Array<number>,
-    linesToRight: Array<number>,
-    linesToLeft: Array<number>,
-    linesToSameColumn: Array<number>,
-    linesToSelf: Array<number>
-    hidden: boolean,
-    merged: boolean,
-}
-type LineBlockType = "Right" | "Left" | "Self" | "SameColumn";
-interface LineBlockData {
-    id: number,
-    symbol: _Symbol,
-    from: number,
-    to: number,
-    type: LineBlockType,
-    points: Array<[number, number]>,
-    hidden: boolean,
-}
-interface ColumnData {
-    stateIds: Array<number>,
-    // 不需要top，因为肯定是0
-    left: number,
-    height: number,
-    width: number,
+import { StateItemData, LineBlockType, LineBlockData, ColumnData } from "./automaton-panel";
 
-    linesPassByRight: Array<number>,
-    linesPassByLeft: Array<number>,
-    linesPassByBottom: Array<number>,
-}
 const GAP_OUT = 16;
 const GAP_IN = 8;
 const GAP_INITIAL_LARGE = 16;
@@ -105,7 +75,7 @@ function generateStateItemData(state: LRItemSet, top: number, left: number, colu
     return {
         state, top, left, column,
         linesIn: [], linesToLeft: [], linesToRight: [], linesToSameColumn: [], linesToSelf: [],
-        hidden: false, merged: false,
+        hidden: false, merged: false, highlight: "normal",
     };
 }
 function GenerateColumnData(stateIds? :Array<number>): ColumnData {
@@ -121,7 +91,7 @@ function generateLineBlockData(symbol: _Symbol, from: number, to: number, type: 
     return {
         id: lineBlockIdGenerator,
         symbol, from, to, type,
-        points: [[0,0]], hidden: false
+        points: [[0,0]], hidden: false, highlight: "normal",
     };
 }
 export default defineComponent({
@@ -466,9 +436,73 @@ export default defineComponent({
             await ShiftColumns(1);
         }
 
+        const colorfulStates: Array<number> = [];
+        const colorfulLines: Array<number> = [];
+        function handleStatesPath(data: ParseStepResult) {
+            colorfulStates.forEach((stateId) => {
+                const stateItem = stateItems.value.get(stateId)!;
+                stateItem.highlight = "normal";
+            });
+            colorfulLines.forEach((lineId) => {
+                const lineBlock = lineBlocks.value.get(lineId)!;
+                lineBlock.highlight = "normal";
+            });
+            colorfulStates.splice(0);
+            colorfulLines.splice(0);
+
+            if (data.action.name === "Shift" || data.action.name === "Goto") {
+                const fromStateItem = stateItems.value.get(data.actionSource.stateId)!;
+                fromStateItem.highlight = "green";
+                const currStateItem = stateItems.value.get(data.currentStateId)!;
+                currStateItem.highlight = "gold";
+                colorfulStates.push(data.actionSource.stateId, data.currentStateId);
+                for (let i = 0; i < currStateItem.linesIn.length; i++) {
+                    const lineBlock = lineBlocks.value.get(currStateItem.linesIn[i])!;
+                    if (lineBlock.from === data.actionSource.stateId) {
+                        lineBlock.highlight = "green";
+                        colorfulLines.push(currStateItem.linesIn[i]);
+                        break;
+                    }
+                }
+            } else if (data.action.name === "Reduce") {
+                const currStateItem = stateItems.value.get(data.currentStateId)!;
+                currStateItem.highlight = "gold";
+                colorfulStates.push(data.currentStateId);
+                for (let i = data.stateStackDiff.length - 1; i >= 0; i--) {
+                    const sid = data.stateStackDiff[i];
+                    const stateItem = stateItems.value.get(sid)!;
+                    if (i > 0) {
+                        for (let j = 0; j < stateItem.linesIn.length; j++) {
+                            const lineBlock = lineBlocks.value.get(stateItem.linesIn[j])!;
+                            if (lineBlock.from === data.stateStackDiff[i - 1]) {
+                                lineBlock.highlight = "gray";
+                                colorfulLines.push(stateItem.linesIn[j]);
+                                break;
+                            }
+                        }
+                    } else {
+                        for (let j = 0; j < stateItem.linesIn.length; j++) {
+                            const lineblock = lineBlocks.value.get(stateItem.linesIn[j])!;
+                            if (lineblock.from === data.currentStateId) {
+                                lineblock.highlight = "gray";
+                                colorfulLines.push(stateItem.linesIn[j]);
+                            }
+                        }
+                    }
+                    stateItem.highlight = "gray";
+                    colorfulStates.push(sid);
+                }
+            } else {
+                const currStateItem = stateItems.value.get(data.currentStateId)!;
+                currStateItem.highlight = "gold";
+                colorfulStates.push(data.currentStateId);
+            }
+        }
+
         const unsubscribe = [
             EventBus.subscribe("lr", "AutomatonAppendStates", handleAppendStates),
             EventBus.subscribe("lr", "AutomatonMergeLr1States", handleMergeLr1States),
+            EventBus.subscribe("lr", "AutomatonStatesPath", handleStatesPath),
         ];
         onUnmounted(() => { unsubscribe.forEach(fn => fn()); });
 
@@ -623,6 +657,15 @@ svg {
         stroke-dasharray: 100, 0;
     }
 }
+
+.state-goto-line-highlight-green {
+    stroke: green;
+}
+
+.state-goto-line-highlight-gray {
+    stroke: saddlebrown;
+}
+
 .terminal {
     font-family: "Times New Roman";
 }
