@@ -1,10 +1,9 @@
 <template>
-    <div v-if="larkLoaded">
-        <GWindow class="panel-window" title="Input Panel" height="400px">
+    <template v-if="larkLoaded">
+        <GWindow class="panel-window" title="Input Panel" :default-style="{ height: '400px' }">
             <InputPanel></InputPanel>
         </GWindow>
-        <ControlPanel v-if="showControlPanel"></ControlPanel>
-        <GWindow class="panel-window" title="Automaton" height="80vh" v-if="showAutomaton">
+        <GWindow class="panel-window" title="Automaton" :default-style="{ height: '80vh' }" v-if="showAutomaton">
             <Automaton></Automaton>
             <!-- <div class="panel-container">
                 <div class="automaton-loading-mask" v-if="automatonLoading">
@@ -17,13 +16,15 @@
                 </div>
             </div> -->
         </GWindow>
-        <GWindow class="panel-window" title="Parse Table" v-if="showParseTable">
+        <GWindow class="panel-window" title="Parse Table" :default-style="{ width: 'fit-content', height: 'fit-content', maxWidth: '100%'}"
+            v-if="showParseTable">
             <ParseTableVue></ParseTableVue>
         </GWindow>
-        <GWindow class="panel-window" title="Parse Tree" v-if="showParseTree">
+        <GWindow class="panel-window" title="Parse Tree" :default-style="{ height: '80vh' }" v-if="showParseTree">
             <ParseTree></ParseTree>
         </GWindow>
-    </div>
+        <ControlPanel v-if="showControlPanel"></ControlPanel>
+    </template>
     <div v-else>
         {{ t("lr.loadingDependecy") }}
         <br />
@@ -95,6 +96,7 @@ export default defineComponent({
 .panel-container {
     position: relative;
 }
+
 .automaton-loading-mask {
     position: absolute;
     top: 0;
@@ -104,40 +106,48 @@ export default defineComponent({
     background-color: rgba(255, 255, 255, 0.8);
     z-index: 30;
 }
+
 .loading {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
 }
+
 .loading-svg {
     width: 44px;
     height: 44px;
     animation: loading-rotate 2s linear infinite;
 }
+
 .loading-circle {
     stroke: var(--color-klein-blue);
     stroke-width: 2;
     fill: none;
     animation: loading-dash 1.5s ease-in-out infinite;
 }
+
 @keyframes loading-rotate {
     0% {
         transform: rotate(0);
     }
+
     100% {
         transform: rotate(360deg);
     }
 }
+
 @keyframes loading-dash {
     0% {
         stroke-dasharray: 1, 200;
         stroke-dashoffset: 0;
     }
+
     50% {
         stroke-dasharray: 90, 150;
         stroke-dashoffset: -40px;
     }
+
     100% {
         stroke-dasharray: 90, 150;
         stroke-dashoffset: -120px;

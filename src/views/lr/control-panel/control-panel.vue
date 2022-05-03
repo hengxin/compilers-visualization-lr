@@ -177,6 +177,6 @@ function reset() {
     background-color: white;
     border: 2px var(--color-klein-blue) solid;
     padding: 8px;
-    z-index: 10;
+    z-index: 99999;
 }
 </style>

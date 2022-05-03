@@ -1,9 +1,9 @@
 <template>
     <div class="__g-window" ref="windowRef"
         :style="state.maximized ? { top: 0, bottom: 0, left: 0, right: 0, position: 'fixed', zIndex: state.zIndex } :
-    (state.pinned ? { height: state.minimized ? '28px' : props.height, width: props.width } :
+        (state.pinned ? (state.minimized ? {...defaultStyle, height: '28px'} : defaultStyle) :
         { width: state.width, height: state.minimized ? '28px' : state.height, top: state.top, left: state.left,
-            position: 'fixed', zIndex: state.zIndex, boxShadow: '0 0 8px gray' })">
+            position: 'absolute', zIndex: state.zIndex, boxShadow: '0 0 8px gray' })">
         <div class="__g-window-bar" ref="barRef">
             <span class="__g-window-bar-title">{{ title }}</span>
             <span class="__g-window-bar-button" ref="minimizeBtn" @click="changeMinimized()">
@@ -34,19 +34,16 @@
         <div class="__g-window-resize-area-sw" ref="resizeAreaSW" v-show="!state.pinned && !state.minimized && !state.maximized"></div>
     </div>
 </template>
-<script lang="ts">
-// import {defineComponent} from "vue";
-// export default defineComponent({
-//     setup(props, ctx) {
-        
-//     }
-// });
-</script>
 <script setup lang="ts">
-import { getCurrentInstance, onMounted, onUnmounted, reactive, ref, StyleValue } from 'vue';
+import { getCurrentInstance, nextTick, onMounted, onUnmounted, PropType, reactive, ref, StyleValue } from 'vue';
 import { registerWindowInstance, unregisterWindowInstance, getNewZIndex } from "./window";
 
-const props = defineProps<{ title: string, width?: string, height?: string }>();
+type PositionType = "fixed" | "absolute";
+const props = defineProps({
+    title: { type: String, required: true },
+    defaultStyle: { type: Object as PropType<StyleValue> },
+    position: { type: String as PropType<PositionType>, default: "fixed" },
+});
 const windowRef = ref<HTMLDivElement>();
 const barRef = ref<HTMLDivElement>();
 const innerRef = ref<HTMLDivElement>();
@@ -164,7 +161,9 @@ function changePinned() {
         state.height = mem.height + "px";
     }
     state.pinned = newPinnedState;
-    avoidOutOfBound();
+    nextTick(() => {
+        avoidOutOfBound();
+    });
     refreshZIndex();
 }
 
@@ -246,11 +245,12 @@ function resize(ev: MouseEvent) {
 }
 function avoidOutOfBound() {
     if (state.pinned || state.maximized) return;
-    if (mem.top >= document.body.scrollHeight - 100) {
-        mem.top = document.body.scrollHeight - 100;
+    console.log(window.innerHeight);
+    if (mem.top >= window.innerHeight - 200) {
+        mem.top = window.innerHeight - 200;
     }
-    if (mem.left >= document.body.scrollWidth - 100) {
-        mem.left = document.body.scrollWidth - 100;
+    if (mem.left >= window.innerHeight - 200) {
+        mem.left = window.innerHeight - 200;
     }
     state.top = mem.top + "px";
     state.left = mem.left + "px";

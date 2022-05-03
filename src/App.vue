@@ -36,9 +36,12 @@ onErrorCaptured((err, instance, info) => {
     min-height: calc(100vh - 64px);
     width: 100%;
     padding: 16px;
+    position: relative;
 }
 .footer {
     height: 16px;
+    font-size: 12px;
+    line-height: 12px;
 }
 </style>
 <style>

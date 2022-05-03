@@ -11,7 +11,8 @@
         <tr v-for="row in data">
             <td>{{ row[0] }}</td>
             <td v-for="action in row[1]">{{ action }}</td>
-        </tr></table>
+        </tr>
+    </table>
 </template>
 <script lang="ts">
 import { defineComponent } from "vue";
@@ -53,13 +54,16 @@ export default defineComponent({
 .parse-table {
     font-size: 12px;
 }
+
 table {
     border-collapse: separate;
     border-spacing: 0;
     border-top: 2px solid black;
     border-left: 2px solid black;
 }
-th, td {
+
+th,
+td {
     border: 2px solid black;
     border-top: none;
     border-left: none;
