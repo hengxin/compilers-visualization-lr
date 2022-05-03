@@ -51,6 +51,20 @@
                 </g>
             </svg>
         </div>
+        <div class="first-set-panel" v-if="algorithm !== 'LR0'">
+            <div class="first-set-header">
+                <span>FirstSet</span>
+                <span class="first-set-table-btn" @click="changeShowFirstSetTable">{{showFirstSetTable ? "&lt;" : "&gt;"}}</span>
+            </div>
+            <div class="first-set-table" v-show="showFirstSetTable">
+                <template v-for="firstSetPair in firstSetWithNullable">
+                    <div class="first-set-row-l">{{ firstSetPair[0].name }}</div>
+                    <div class="first-set-row-r">
+                        <span class="first-set-symbol" v-for="sym in firstSetPair[1]">{{ sym.name }}</span>
+                    </div>
+                </template>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -100,6 +114,7 @@ export default defineComponent({
     },
     setup() {
         const lrStore = useLrStore();
+        const parser = GetParser();
 
         // stateId -> HTMLDivElement
         const stateRefs: Map<number, HTMLDivElement> = new Map();
@@ -116,7 +131,7 @@ export default defineComponent({
             };
         }
         function start() {
-            const state = GetParser().automaton.states[0];
+            const state = parser.automaton.states[0];
             stateItems.value.set(state.id, generateStateItemData(state, 0, 0, 0));
             columns.push(GenerateColumnData([state.id]));
             nextTick(() => {
@@ -604,6 +619,26 @@ export default defineComponent({
             });
         });
 
+        const showFirstSetTable = ref(true);
+        function changeShowFirstSetTable() {
+            showFirstSetTable.value = !showFirstSetTable.value;
+        }
+        const firstSetWithNullable: Map<_Symbol, Array<_Symbol>> = new Map();
+        function initFirstSet() {
+            const {firstSet, nullable, SYMBOL_EPSILON: epsilon} = parser.getFirstSet();
+            firstSet.forEach((set, sym) => {
+                if (sym.isTerm) return; // continue for-each loop
+                const firstArr = Array.from(set);
+                if (nullable.has(sym)) {
+                    firstArr.push(epsilon);
+                }
+                firstSetWithNullable.set(sym, firstArr);
+            });
+        }
+        if (lrStore.algorithm !== "LR0") {
+            initFirstSet();
+        }
+
         return {
             stateItems, lineBlocks, displayPanel,
             updateState, stateRefs,
@@ -611,6 +646,10 @@ export default defineComponent({
             handleStateMouseEnter, handleStateMouseLeave,
             handleLineMouseEnter, handleLineMouseLeave,
             handleStateClick,
+            algorithm: lrStore.algorithm,
+            showFirstSetTable,
+            changeShowFirstSetTable,
+            firstSetWithNullable,
         };
     }
 });
@@ -678,7 +717,6 @@ svg {
     z-index: 2;
 }
 .line-text-shift {
-    /* transform: translateX(-100%); */
     text-anchor: end;
 }
 .hidden {
@@ -687,5 +725,63 @@ svg {
 
 .merged {
     opacity: 0.3;
+}
+
+.first-set-panel {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    max-width: 300px;
+    font-weight: bold;    
+    border: 2px solid black;
+    padding: 10px;
+}
+
+.first-set-header {
+    position: sticky;
+    left: 0;
+    top: 0;
+    width: fit-content;
+}
+
+.first-set-table-btn {
+    cursor: pointer;
+    margin-left: 4px;
+    font-size: 16px;
+    line-height: 12px;
+    color: red;
+}
+
+/* 固定第一列表头的样式写的很不优雅，但水平有限凑合用吧 */
+.first-set-table {
+    display: grid;
+    grid-template-columns: auto auto;
+    max-width: 300px;
+    max-height: 200px;
+    overflow: auto;
+    border: 1px solid gray;
+    border-bottom: none;
+}
+
+.first-set-row-l {
+    position: sticky;
+    left: 0;
+    border-right: 1px solid gray;
+    border-bottom: 1px solid gray;
+    padding: 2px;
+    background-color: white;
+}
+
+.first-set-row-r {
+    border-bottom: 1px solid gray;
+    padding: 2px;
+}
+
+.first-set-symbol {
+    border: 1px solid gray;
+    margin-right: 4px;
+}
+.first-set-symbol:last-child {
+    margin-right: 0;
 }
 </style>

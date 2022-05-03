@@ -296,30 +296,6 @@ defineExpose({ avoidOutOfBound });
     overflow: auto;
 }
 
-.__g-window-inner::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
-}
-
-.__g-window-inner::-webkit-scrollbar-thumb {
-    background-color: gainsboro;
-    border-radius: 6px;
-}
-
-.__g-window-inner::-webkit-scrollbar-track {
-    background-color: #f1f1f1;
-}
-
-.__g-window-inner::-webkit-scrollbar-corner {
-    background-color: #dcdcdc;
-}
-
-.__g-window-inner::-webkit-scrollbar-button {
-    background-color: #f1f1f1;
-    height: 4px;
-    width: 4px;
-}
-
 .__g-window-resize-area-n {
     position: absolute;
     cursor: n-resize;

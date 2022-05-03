@@ -73,4 +73,28 @@ body {
 a {
     text-decoration: none;
 }
+
+*::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: gainsboro;
+    border-radius: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background-color: #f1f1f1;
+}
+
+*::-webkit-scrollbar-corner {
+    background-color: #dcdcdc;
+}
+
+*::-webkit-scrollbar-button {
+    background-color: #f1f1f1;
+    height: 2px;
+    width: 2px;
+}
 </style>

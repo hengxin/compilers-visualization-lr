@@ -1026,7 +1026,6 @@ class InteractiveLrParser {
             throw new ParserError(PARSER_EXCEPTION_MSG.START_SYMBOL_NOT_FOUND);
         }
         this.automaton = new Automaton(this.algo);
-        // 这句话只是让编译器不报错，实际上应该自动机计算完后再创建分析表
         this.parseTable = new ParseTable(this.automaton);
         if (this.algo !== "LR0") {
             this.calcFirstSet();
@@ -1065,6 +1064,14 @@ class InteractiveLrParser {
                 }
             });
         } while (!finish);
+    }
+
+    getFirstSet() {
+        return {
+            firstSet: PARSER_STORE.firstSet,
+            nullable: PARSER_STORE.nullable,
+            SYMBOL_EPSILON,
+        };
     }
 
     calcParseTable() {
@@ -1143,5 +1150,5 @@ export {
     type ParseAlgorithm, type AppendStateResult,
     type MergeLr1StatesResult,
     type ParseStepResult,
-    ParseTable, PARSER_STORE
+    ParseTable,
 };
