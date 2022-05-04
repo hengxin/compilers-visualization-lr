@@ -294,6 +294,7 @@ defineExpose({ avoidOutOfBound });
     width: 100%;
     height: calc(100% - 24px);
     overflow: auto;
+    position: relative;
 }
 
 .__g-window-resize-area-n {

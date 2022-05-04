@@ -28,6 +28,10 @@ export default defineComponent({
 });
 </script>
 <style scoped>
+.lr-item {
+    white-space: nowrap;
+}
+
 /* 字体与样式 */
 .lr-item-symbol,
 .lr-item-dot {

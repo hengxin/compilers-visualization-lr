@@ -1,6 +1,6 @@
 <template>
     <div class="rule-line">
-        <span class="rule-index">({{ index }})</span>
+        <span class="rule-index" v-if="index !== undefined">({{ index }})</span>
         <div class="rule-item">
             <span class="rule-symbol rule-symbol-nonterminal">{{ rule!.origin.name }}</span>
             <span class="rule-symbol">→</span>
@@ -17,7 +17,7 @@ import { defineComponent, PropType } from "vue";
 import { Rule } from "@/parsers/lr";
 const props = {
     rule: { type: Object as PropType<Rule>, required: true },
-    index: { type: Number, required: true },
+    index: { type: Number },
 }
 export default defineComponent({
     props,

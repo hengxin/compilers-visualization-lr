@@ -1,28 +1,36 @@
 <template>
     <div class="parse-message-container">
         <div class="parse-operations">
-            <div v-if="operation">
+            <template v-if="operation">
+                <span>动作:&nbsp;</span>
                 <span>{{ operation.abbr }}{{ operation.arg }}</span>
-                <span v-if="operation.name === 'Reduce'">{{ operation.rule.toString() }}</span>
-            </div>
+                <RuleLine style="margin-left: 8px" v-if="operation.name === 'Reduce'" :rule="operation.rule"></RuleLine>
+            </template>
         </div>
-        <div class="parse-current-token">
-            <div>
+        <div class="parse-current">
+            <template v-if="(nextToken instanceof Token)">
                 <span>NextToken:&nbsp;</span>
-                <span v-if="(nextToken instanceof Token)">{{ nextToken.type }}({{ nextToken.value }})</span>
-                <span v-else>{{ (nextToken as Tree).symbol.name }}</span>
-            </div>
+                <div class="parse-current-text">
+                    <span>{{ nextToken.type }}</span>
+                    <span v-if="nextToken.type !== nextToken.value">({{ nextToken.value }})</span>
+                </div>
+            </template>
+            <template v-else>
+                <span>NextSymbol:&nbsp;</span>
+                <div class="parse-current-text">
+                    <span>{{ (nextToken as Tree).symbol.name }}</span>
+                </div>
+            </template>
         </div>
     </div>
     <div class="parse-stack-container">
-        <div class="stack">
-            <div class="stack-block" v-for="item in stateStack" :key="item[0]">
-                <span>I<sub>{{ item[1] }}</sub></span>
-            </div>
-            <div class="stack-block-empty"></div>
-        </div>
+        <div class="parse-stack-title">状态栈</div>
+        <ParseStack ref="stateStackRef" style="margin-right: 8px;" mode="html" color1="#5976ba" color2="#b0c4de">
+        </ParseStack>
+        <div class="parse-stack-title">符号栈</div>
+        <ParseStack ref="valueStackRef" color1="#68945c" color2="#6fbe2c"></ParseStack>
     </div>
-    <div class="parse-tree2">
+    <div class="parse-tree">
         <svg :width="totalWidth" :height="totalHeight">
             <!-- path放在上面是为了不让路径盖住文字 -->
             <path v-for="treePath in treePathList" :key="treePath.id" :d="treePath.pathStr" class="tree-path"
@@ -40,13 +48,17 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
-import { GetParser, ParseStepResult, Action, Tree, _Symbol, Token } from "@/parsers/lr";
+import { GetParser, ParseStepResult, Action, Tree, _Symbol, Token, SYMBOL_END } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
+
+import ParseStack from "./parse-stack.vue";
+import RuleLine from "../input-panel/rule-line.vue";
 
 const parser = GetParser();
 const nextToken = ref(parser.current);
 const operation = ref<Action>();
-const stateStack = ref<Array<[symbol, number]>>([[Symbol(), 0]]);
+const stateStackRef = ref<InstanceType<typeof ParseStack>>();
+const valueStackRef = ref<InstanceType<typeof ParseStack>>();
 
 const VERTICAL_GAP = 60, HORIZONTAL_GAP = 60;
 const RADIUS = 8;
@@ -116,12 +128,13 @@ class TreeData {
         }
     }
     changeExpand() {
-        const newValue = !this.expand;
-        this.expand = newValue;
+        if (this.children.length === 0) return;
+        // const newValue = !this.expand;
+        this.expand = !this.expand;
         if (this.path) {
-            this.path.visible = newValue;
+            this.path.visible = this.expand;
         }
-        this.children.forEach(child => child.changeExpandShow(newValue));
+        this.children.forEach(child => child.changeExpandShow(this.expand));
     }
 }
 class TreePath {
@@ -167,23 +180,40 @@ async function handleParseTreeStep(step: ParseStepResult) {
     if (step.action.name === "Shift") {
         // Shift
         operation.value = step.action;
-        // Symbol()是为了让key唯一
-        step.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
+        step.stateStackDiff.forEach(value => stateStackRef.value?.push({
+            content: "<span>I<sub>" + value.toString() + "</sub></span>",
+        }));
+        step.valueStackDiff.forEach(value => valueStackRef.value?.push({
+            title: value.symbol.name,
+            content: value.symbol.name,
+        }));
         const newTree = step.valueStackDiff[0];
         addTree(newTree);
     } else if (step.action.name === "Reduce") {
         // Reduce
         operation.value = step.action;
-        stateStack.value.splice(-step.stateStackDiff.length, step.stateStackDiff.length);
+        stateStackRef.value?.pop(step.stateStackDiff.length);
+        valueStackRef.value?.pop(step.valueStackDiff.length);
         mergeTree(step.next as Tree, step.valueStackDiff.length);
     } else if (step.action.name === "Goto") {
         // Goto
-        step.stateStackDiff.forEach(value => stateStack.value.push([Symbol(), value]));
+        step.stateStackDiff.forEach(value => stateStackRef.value?.push({
+            content: "<span>I<sub>" + value.toString() + "</sub></span>",
+        }));
+        step.valueStackDiff.forEach(value => valueStackRef.value?.push({
+            title: value.symbol.name,
+            content: value.symbol.name,
+        }));
     } else {
         // TODO ACC
     }
     nextToken.value = step.next;
 }
+
+onMounted(() => {
+    stateStackRef.value?.push({ content: "<span>I<sub>0</sub></span>" });
+    valueStackRef.value?.push({ title: SYMBOL_END.name, content: SYMBOL_END.name });
+});
 
 const unsubscribe = [
     EventBus.subscribe("lr", "ParseTreeStep", handleParseTreeStep),
@@ -192,64 +222,60 @@ onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
 </script>
 <style scoped>
 .parse-message-container {
-    display: flex;
-    flex-direction: row;
+    position: absolute;
+    top: 0;
+    left: 0;
     width: fit-content;
+    margin: 8px 0 0 8px;
+    padding: 4px;
+    border: 2px solid rgb(33, 166, 117);
+    border-radius: 4px;
+    background-color: rgba(33, 166, 117, 0.2);
 }
 
 .parse-operations {
-    width: 200px;
-    height: 50px;
-    border: 2px var(--color-klein-blue) solid;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
 
-.parse-current-token {
-    height: 50px;
-    border: 2px var(--color-klein-blue) solid;
-    border-left: none;
+.parse-current {
     display: flex;
     align-items: center;
-    justify-content: center;
+}
+
+.parse-current-text {
+    background-color: whitesmoke;
+    padding: 0 4px
 }
 
 .parse-stack-container {
-    width: 100%;
-    overflow: auto;
-}
-
-.stack {
-    border: 2px var(--color-klein-blue) solid;
-    border-right: none;
-    width: fit-content;
+    height: calc(100% - 80px);
+    position: absolute;
+    left: 0;
+    bottom: 0px;
+    margin-bottom: 16px;
+    padding-right: 8px;
     display: flex;
     flex-direction: row;
+    align-items: flex-end;
 }
 
-.stack-block,
-.stack-block-empty {
-    margin: 2px 2px 2px 0;
-    padding: 4px;
+.parse-stack-title {
+    writing-mode: vertical-rl;
+    margin: 0 4px 4px 4px;
+    font-style: italic;
+    width: 20px;
+    line-height: 20px;
+    font-size: 16px;
 }
 
-.stack-block:first-child {
-    margin-left: 2px;
-}
-
-.stack-block {
-    border: 2px var(--color-klein-blue) solid;
-    animation: slide-in ease 0.4s;
-}
-
-@keyframes slide-in {
-    0% {
-        opacity: 0;
-        transform: translateX(100%);
-    }
-
-    100% {
-        opacity: 100;
-        transform: translateX(0);
-    }
+.parse-tree {
+    /* margin: 60px 0 0 220px; */
+    width: 100%;
+    height: 100%;
+    padding: 60px 0 0 220px;
+    overflow: auto;
 }
 
 .tree-node-group {
@@ -267,21 +293,21 @@ onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
 }
 
 .tree-node-circle {
-    stroke: var(--color-klein-blue);
+    stroke: #5976ba;
     stroke-width: 2;
     fill: white;
     transition: all 0.5s;
 }
 
 .tree-node-solid {
-    fill: var(--color-klein-blue);
+    fill: #b0c4de;
 }
 
 .tree-node-text {
     text-anchor: middle;
     font-size: 12px;
     font-weight: bold;
-    stroke: yellow;
+    stroke: white;
     stroke-width: 2;
     fill: black;
     paint-order: stroke fill;
@@ -290,7 +316,7 @@ onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
 }
 
 .tree-path {
-    stroke: red;
+    stroke: #68945c;
     stroke-width: 1;
     fill: none;
     transition: all 0.5s;

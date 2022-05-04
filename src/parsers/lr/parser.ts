@@ -1151,4 +1151,5 @@ export {
     type MergeLr1StatesResult,
     type ParseStepResult,
     ParseTable,
+    SYMBOL_END, SYMBOL_EPSILON,
 };

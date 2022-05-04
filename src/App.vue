@@ -63,6 +63,7 @@ onErrorCaptured((err, instance, info) => {
 }
 html {
     box-sizing: border-box;
+    font-size: 12px;
 }
 *, *::before, *::after {
     box-sizing: inherit;

@@ -78,6 +78,7 @@ export default defineComponent({
 <style scoped>
 .parse-table {
     font-size: 12px;
+    margin: 12px;
 }
 
 .grid-highlight {

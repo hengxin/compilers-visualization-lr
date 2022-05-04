@@ -17,8 +17,8 @@ export default defineComponent({
 <style>
 .__g-button {
     padding: 6px 8px;
-    font-size: 12px;
-    line-height: 12px;
+    font-size: 1em;
+    line-height: 1em;
     border: 1px var(--color-gainsboro) solid;
     border-radius: 2px;
     background-color: var(--color-white);
