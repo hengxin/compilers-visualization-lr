@@ -51,25 +51,25 @@
                 </g>
             </svg>
         </div>
-        <div class="first-set-panel" v-if="algorithm !== 'LR0'">
-            <div class="first-set-header">
-                <span>FirstSet</span>
-                <span class="first-set-table-btn" @click="changeShowFirstSetTable">{{showFirstSetTable ? "&lt;" : "&gt;"}}</span>
-            </div>
-            <div class="first-set-table" v-show="showFirstSetTable">
-                <template v-for="firstSetPair in firstSetWithNullable">
-                    <div class="first-set-row-l">{{ firstSetPair[0].name }}</div>
-                    <div class="first-set-row-r">
-                        <span class="first-set-symbol" v-for="sym in firstSetPair[1]">{{ sym.name }}</span>
-                    </div>
-                </template>
-            </div>
+    </div>
+    <div class="first-set-panel" v-if="algorithm !== 'LR0'">
+        <div class="first-set-header">
+            <span>FirstSet</span>
+            <span class="first-set-table-btn" @click="changeShowFirstSetTable">{{showFirstSetTable ? "&gt;" : "&lt;"}}</span>
+        </div>
+        <div class="first-set-table" v-show="showFirstSetTable">
+            <template v-for="firstSetPair in firstSetWithNullable">
+                <div class="first-set-row-l">{{ firstSetPair[0].name }}</div>
+                <div class="first-set-row-r">
+                    <span class="first-set-symbol" v-for="sym in firstSetPair[1]">{{ sym.name }}</span>
+                </div>
+            </template>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { computed, defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
 import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
 import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult, ParseStepResult } from "@/parsers/lr";
@@ -115,6 +115,7 @@ export default defineComponent({
     setup() {
         const lrStore = useLrStore();
         const parser = GetParser();
+        const automatonLoading = computed(() => lrStore.automatonLoading);
 
         // stateId -> HTMLDivElement
         const stateRefs: Map<number, HTMLDivElement> = new Map();
@@ -640,6 +641,7 @@ export default defineComponent({
         }
 
         return {
+            automatonLoading,
             stateItems, lineBlocks, displayPanel,
             updateState, stateRefs,
             GAP_ARROW, totalHeight, totalWidth,
@@ -735,20 +737,17 @@ svg {
     font-weight: bold;    
     border: 2px solid black;
     padding: 10px;
+    background-color: aliceblue;
+    z-index: 5;
 }
 
 .first-set-header {
-    position: sticky;
-    left: 0;
-    top: 0;
     width: fit-content;
 }
 
 .first-set-table-btn {
     cursor: pointer;
     margin-left: 4px;
-    font-size: 16px;
-    line-height: 12px;
     color: red;
 }
 
@@ -769,7 +768,7 @@ svg {
     border-right: 1px solid gray;
     border-bottom: 1px solid gray;
     padding: 2px;
-    background-color: white;
+    background-color: aliceblue;
 }
 
 .first-set-row-r {

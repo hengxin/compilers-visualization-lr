@@ -18,17 +18,15 @@ interface Pyodide {
 
 declare global {
     interface Window {
-        loadPyodide(config: { indexURL: string }): Promise<Pyodide>;
+        loadPyodide(config?: { indexURL: string }): Promise<Pyodide>;
     }
 }
 
 let pyodide: Pyodide | undefined = undefined;
 
 async function LoadPyodide(this: any, callback: (s: string) => void): Promise<Pyodide | undefined> {
-    await loadScript("https://cdn.jsdelivr.net/pyodide/v0.19.0/full/pyodide.js");
-    pyodide = await window.loadPyodide({
-        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.19.0/full/"
-    }) as Pyodide;
+    await loadScript("https://cdn.jsdelivr.net/pyodide/v0.20.0/full/pyodide.js");
+    pyodide = await window.loadPyodide() as Pyodide;
     callback?.call(this, "Pyodide loaded. Installing micropip...");
     await pyodide.loadPackage("micropip");
     await pyodide.runPythonAsync("import micropip");
