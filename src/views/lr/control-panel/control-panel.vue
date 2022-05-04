@@ -3,28 +3,35 @@
         <template v-if="parserStatus === ParserStatus.Automaton">
         <template v-if="automatonStatus === AutomatonStatus.Calculate">
         <!-- 自动机控制面板 -->
-            <div>当前操作状态：<span>I{{ currentStateId }}</span></div>
-            <GButton v-show="showCalcClosureButton" @click="CalcClosure()">计算闭包</GButton>
-            <GButton v-show="showAppendStatesButton" @click="AppendStates()">状态转换</GButton>
-            <span>手动模式：</span>
-            <GSwitch :model-value="manual" @change="SwitchMode" :disabled="manual"></GSwitch>
-            <GButton @click="skipAutomaton()">skip</GButton>
+            <div class="control-panel-group">
+                <div>当前操作状态：<span class="non-terminal">I</span><sub class="non-terminal">{{ currentStateId }}</sub></div>
+                <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure()">计算闭包</GButton>
+                <GButton v-show="showAppendStatesButton" type="success" @click="AppendStates()">状态转换</GButton>
+                <GButton v-show="!manual" type="info" @click="skipAutomaton()">skip</GButton>
+            </div>
+            <div class="control-panel-group">
+                <span>手动模式：</span>
+                <GSwitch :model-value="manual" @change="SwitchMode" :disabled="manual"></GSwitch>
+            </div>
         </template>
         <template v-if="automatonStatus === AutomatonStatus.Merge">
-            <GButton @click="MergeLr1States()">合并相同核心的LR1项</GButton>
+            <GButton type="info" @click="MergeLr1States()">合并相同核心的LR1项</GButton>
         </template>
         <template v-if="automatonStatus === AutomatonStatus.Done">
-            <GButton v-show="showCalcParseTableButton" @click="CalcParseTable()">计算语法分析表</GButton>
+            <GButton type="info" v-show="showCalcParseTableButton" @click="CalcParseTable()">计算语法分析表</GButton>
         </template>
         </template>
 
         <template v-if="parserStatus === ParserStatus.ParseTable">
-            <GButton @click="startParse()">StartParse</GButton>
+            <GButton type="info" @click="startParse()">StartParse</GButton>
         </template>
 
-        <template v-if="parserStatus === ParserStatus.ParseTree">
-            <GButton @click="parse()">ParseStep</GButton>
-        </template>
+        <div class="control-panel-group" v-if="parserStatus === ParserStatus.ParseTree">
+            <GButton type="success" @click="parse()">ParseStep</GButton>
+            <GButton type="info" @click="skipParse()">Skip</GButton>
+        </div>
+        
+        <span v-if="parserStatus === ParserStatus.Done">Finish!</span>
         <GButton @click="reset()" type="error">Reset</GButton>
     </div>
 </template>
@@ -53,7 +60,7 @@ enum AutomatonStatus {
 const automatonStatus = ref(AutomatonStatus.Calculate);
 
 enum ParserStatus {
-    Automaton, ParseTable, ParseTree,
+    Automaton, ParseTable, ParseTree, Done,
 }
 const parserStatus = ref(ParserStatus.Automaton);
 
@@ -160,10 +167,21 @@ function parse() {
     EventBus.publish("lr", "ParseTreeStep", res);
     EventBus.publish("lr", "ParseTableHighlight", res.actionSource);
     EventBus.publish("lr", "AutomatonStatesPath", res);
+    if (parser.done) {
+        parserStatus.value = ParserStatus.Done;
+    }
+}
+
+function skipParse() {
+    while(!parser.done) {
+        parse();
+    }
 }
 
 function reset() {
     EventBus.publish("lr", "Reset");
+    // 为什么不用重新设置ParserStauts和AutomatonStatus?
+    // 因为reset后，index的v-if会直接将该组件卸载，重新加载就直接重新初始化了。
 }
 
 </script>
@@ -171,14 +189,29 @@ function reset() {
 .control-panel {
     display: flex;
     flex-direction: row;
-    position: fixed;
-    left: 48px;
-    right: 48px;
-    bottom: 48px;
     align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 48px;
+    margin: 0 auto;
+    width: 500px;
     background-color: white;
-    border: 2px var(--color-klein-blue) solid;
+    border: 2px solid rgb(33, 166, 117);
+    border-radius: 4px;
     padding: 8px;
+    background-color: #d3ede3;
     z-index: 99999;
+}
+
+.control-panel-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.control-panel-group > * {
+    margin-right: 4px;
 }
 </style>

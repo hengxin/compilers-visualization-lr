@@ -3,21 +3,22 @@
         <div class="parse-operations">
             <template v-if="operation">
                 <span>动作:&nbsp;</span>
-                <span>{{ operation.abbr }}{{ operation.arg }}</span>
+                <span class="non-terminal">{{ operation.abbr }}</span>
+                <span class="terminal">{{ operation.arg }}</span>
                 <RuleLine style="margin-left: 8px" v-if="operation.name === 'Reduce'" :rule="operation.rule"></RuleLine>
             </template>
         </div>
         <div class="parse-current">
             <template v-if="(nextToken instanceof Token)">
                 <span>NextToken:&nbsp;</span>
-                <div class="parse-current-text">
+                <div class="parse-current-text terminal">
                     <span>{{ nextToken.type }}</span>
                     <span v-if="nextToken.type !== nextToken.value">({{ nextToken.value }})</span>
                 </div>
             </template>
             <template v-else>
                 <span>NextSymbol:&nbsp;</span>
-                <div class="parse-current-text">
+                <div class="parse-current-text non-terminal">
                     <span>{{ (nextToken as Tree).symbol.name }}</span>
                 </div>
             </template>
@@ -28,7 +29,7 @@
         <ParseStack ref="stateStackRef" style="margin-right: 8px;" mode="html" color1="#5976ba" color2="#b0c4de">
         </ParseStack>
         <div class="parse-stack-title">符号栈</div>
-        <ParseStack ref="valueStackRef" color1="#68945c" color2="#6fbe2c"></ParseStack>
+        <ParseStack ref="valueStackRef" mode="html" color1="#68945c" color2="#6fbe2c"></ParseStack>
     </div>
     <div class="parse-tree">
         <svg :width="totalWidth" :height="totalHeight">
@@ -40,8 +41,8 @@
                     :class="['tree-node-circle', treeNode.expand ? '' : 'tree-node-solid']"
                     @click="treeNode.changeExpand()">
                 </circle>
-                <text class="tree-node-text" :x="treeNode.x" :y="treeNode.y + TEXT_SHIFT_Y">{{ treeNode.symbol.name
-                }}</text>
+                <text :class="['tree-node-text', treeNode.symbol.isTerm ? 'terminal' : 'non-terminal']" :x="treeNode.x"
+                    :y="treeNode.y + TEXT_SHIFT_Y">{{ treeNode.symbol.name }}</text>
             </g>
         </svg>
     </div>
@@ -181,11 +182,11 @@ async function handleParseTreeStep(step: ParseStepResult) {
         // Shift
         operation.value = step.action;
         step.stateStackDiff.forEach(value => stateStackRef.value?.push({
-            content: "<span>I<sub>" + value.toString() + "</sub></span>",
+            content: "<span class=\"non-terminal\">I</span><sub class=\"terminal\">" + value.toString() + "</sub>",
         }));
         step.valueStackDiff.forEach(value => valueStackRef.value?.push({
             title: value.symbol.name,
-            content: value.symbol.name,
+            content: "<span class=\""+ (value.symbol.isTerm ? "terminal" : "non-terminal") + "\">" + value.symbol.name + "</span>",
         }));
         const newTree = step.valueStackDiff[0];
         addTree(newTree);
@@ -198,11 +199,11 @@ async function handleParseTreeStep(step: ParseStepResult) {
     } else if (step.action.name === "Goto") {
         // Goto
         step.stateStackDiff.forEach(value => stateStackRef.value?.push({
-            content: "<span>I<sub>" + value.toString() + "</sub></span>",
+            content: "<span class=\"non-terminal\">I</span><sub class=\"terminal\">" + value.toString() + "</sub>",
         }));
         step.valueStackDiff.forEach(value => valueStackRef.value?.push({
             title: value.symbol.name,
-            content: value.symbol.name,
+            content: "<span class=\""+ (value.symbol.isTerm ? "terminal" : "non-terminal") + "\">" + value.symbol.name + "</span>",
         }));
     } else {
         // TODO ACC
@@ -211,8 +212,8 @@ async function handleParseTreeStep(step: ParseStepResult) {
 }
 
 onMounted(() => {
-    stateStackRef.value?.push({ content: "<span>I<sub>0</sub></span>" });
-    valueStackRef.value?.push({ title: SYMBOL_END.name, content: SYMBOL_END.name });
+    stateStackRef.value?.push({ content: "<span class=\"non-terminal\">I</span><sub class=\"terminal\">0</sub>" });
+    valueStackRef.value?.push({ title: SYMBOL_END.name, content: "<span class=\"terminal\">" + SYMBOL_END.name + "</span>" });
 });
 
 const unsubscribe = [

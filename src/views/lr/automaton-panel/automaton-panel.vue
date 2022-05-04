@@ -59,8 +59,8 @@
         </div>
         <div class="first-set-table" v-show="showFirstSetTable">
             <template v-for="firstSetPair in firstSetWithNullable">
-                <div class="first-set-row-l">{{ firstSetPair[0].name }}</div>
-                <div class="first-set-row-r">
+                <div class="first-set-row-l non-terminal">{{ firstSetPair[0].name }}</div>
+                <div class="first-set-row-r terminal">
                     <span class="first-set-symbol" v-for="sym in firstSetPair[1]">{{ sym.name }}</span>
                 </div>
             </template>
@@ -710,12 +710,6 @@ svg {
     stroke: saddlebrown;
 }
 
-.terminal {
-    font-family: "Times New Roman";
-}
-.non-terminal {
-    font-family: "Cambria Math";
-}
 .line-text {
     transform: translateY(-3px);
     font-weight: bold;
@@ -736,7 +730,7 @@ svg {
     position: absolute;
     top: 30px;
     right: 30px;
-    max-width: 300px;
+    max-width: 400px;
     font-weight: bold;    
     border: 2px solid black;
     padding: 10px;

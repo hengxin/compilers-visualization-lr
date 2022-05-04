@@ -262,7 +262,7 @@ defineExpose({ avoidOutOfBound });
 <style>
 .__g-window {
     z-index: 0;
-    border: 2px var(--color-klein-blue) solid;
+    border: 4px solid #8e8cd8;
     position: relative;
     background-color: white;
 }
@@ -270,7 +270,7 @@ defineExpose({ avoidOutOfBound });
 .__g-window-bar {
     width: 100%;
     height: 24px;
-    background-color: var(--color-klein-blue);
+    background-color: #8e8cd8;
     font-size: 12px;
     padding: 4px 8px;
     color: white;

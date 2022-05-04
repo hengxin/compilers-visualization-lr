@@ -70,6 +70,7 @@ html {
 }
 body {
     margin: 0;
+    font-family: "sans-serif";
 }
 a {
     text-decoration: none;
@@ -97,5 +98,41 @@ a {
     background-color: #f1f1f1;
     height: 2px;
     width: 2px;
+}
+
+@font-face {
+    font-family: "KaTex_Math";
+    src: url("/fonts/KaTeX_Math-Italic.woff2") format("woff2");
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: "KaTex_Math";
+    src: url("/fonts/KaTeX_Math-BoldItalic.woff2") format("woff2");
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: "KaTex_Main";
+    src: url("/fonts/KaTeX_Main-Regular.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "KaTex_Main";
+    src: url("/fonts/KaTeX_Main-Italic.woff2") format("woff2");
+    font-style: italic;
+}
+
+@font-face {
+    font-family: "KaTex_Main";
+    src: url("/fonts/KaTeX_Main-Bold.woff2") format("woff2");
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: "KaTex_Main";
+    src: url("/fonts/KaTeX_Main-BoldItalic.woff2") format("woff2");
+    font-weight: bold;
+    font-style: italic;
 }
 </style>

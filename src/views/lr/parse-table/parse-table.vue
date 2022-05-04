@@ -2,26 +2,29 @@
     <table class="parse-table">
         <tr>
             <th rowspan="2"></th>
-            <th :colspan="actionHeaderCnt">ACTION</th>
-            <th :colspan="gotoHeaderCnt">GOTO</th>
+            <th class="terminal" :colspan="actionHeaderCnt">ACTION</th>
+            <th class="terminal" :colspan="gotoHeaderCnt">GOTO</th>
         </tr>
         <tr>
-            <th v-for="sym in header">{{ sym.name }}</th>
+            <th :class="[sym.isTerm ? 'terminal' : 'non-terminal']" v-for="sym in header">{{ sym.name }}</th>
         </tr>
         <tr v-for="row in data">
             <td>{{ row[0] }}</td>
             <td v-for="action in row[1]" :class="[action.highlight ? 'grid-highlight' : '']">
                 <span v-for="(a, index) in action.value"
-                    :class="[index === 0 ? 'parse-action' : 'parse-action-unused']">{{ a }}</span>
+                    :class="[index === 0 ? 'parse-action' : 'parse-action-unused']">
+                    <span class="non-terminal">{{a.abbr}}</span>
+                    <span class="terminal" v-if="a.name !== 'Accept'">{{a.arg}}</span>
+                </span>
             </td>
         </tr>
     </table>
 </template>
 <script lang="ts">
 import { defineComponent, onUnmounted, ref } from "vue";
-import { GetParser, _Symbol } from "@/parsers/lr";
+import { Action, GetParser, _Symbol } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
-type ActionGrid = { value: Array<string>, highlight: boolean };
+type ActionGrid = { value: Array<Action>, highlight: boolean };
 export default defineComponent({
     setup() {
         const data = ref<Array<[number, Array<ActionGrid>]>>([]);
@@ -37,7 +40,7 @@ export default defineComponent({
                 if (action === undefined) {
                     grid = { value: [], highlight: false };
                 } else {
-                    grid = { value: action.map(a => a.toString()), highlight: false };
+                    grid = { value: action, highlight: false };
                 }
                 row.push(grid);
                 dataMapInner.set(sym, grid);
@@ -48,7 +51,7 @@ export default defineComponent({
                 if (action === undefined) {
                     grid = { value: [], highlight: false };
                 } else {
-                    grid = { value: action.map(a => a.toString()), highlight: false };
+                    grid = { value: action, highlight: false };
                 }
                 row.push(grid);
                 dataMapInner.set(sym, grid);

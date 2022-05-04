@@ -1,19 +1,19 @@
 <template>
     <template v-if="larkLoaded">
-        <GWindow class="panel-window" title="Input Panel" :default-style="{ height: '400px', marginBottom: '4px' }"
+        <GWindow title="Input Panel" :default-style="{ height: '400px', marginBottom: '4px' }"
             position="absolute">
             <InputPanel></InputPanel>
         </GWindow>
-        <GWindow class="panel-window" title="Automaton" :default-style="{ height: '80vh', marginBottom: '4px' }"
+        <GWindow title="Automaton" :default-style="{ height: '80vh', marginBottom: '4px' }"
             position="absolute" v-if="showAutomaton">
             <Automaton></Automaton>
         </GWindow>
-        <GWindow class="panel-window" title="Parse Table"
+        <GWindow title="Parse Table"
             :default-style="{ width: 'fit-content', height: 'fit-content', maxWidth: '100%', marginBottom: '4px' }"
             position="absolute" v-if="showParseTable">
             <ParseTableVue></ParseTableVue>
         </GWindow>
-        <GWindow class="panel-window" title="Parse Tree" :default-style="{ height: '80vh', marginBottom: '64px' }"
+        <GWindow title="Parse Tree" :default-style="{ height: '80vh' }"
             position="absolute" v-if="showParseTree">
             <ParseTree></ParseTree>
         </GWindow>
@@ -77,11 +77,16 @@ export default defineComponent({
 
 </script>
 <style scoped>
-.panel-window {
-    margin-bottom: 4px;
+.terminal,
+:deep(.terminal) {
+    font-family: "KaTex_Main", "Times New Roman";
+    font-weight: bold;
 }
 
-.panel-window:last-child {
-    margin-bottom: 0;
+.non-terminal,
+:deep(.non-terminal) {
+    font-family: "KaTex_Math", "Cambria Math";
+    font-weight: bold;
+    font-style: italic;
 }
 </style>

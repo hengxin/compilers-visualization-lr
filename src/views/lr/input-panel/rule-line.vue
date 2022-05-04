@@ -2,11 +2,11 @@
     <div class="rule-line">
         <span class="rule-index" v-if="index !== undefined">({{ index }})</span>
         <div class="rule-item">
-            <span class="rule-symbol rule-symbol-nonterminal">{{ rule!.origin.name }}</span>
-            <span class="rule-symbol">→</span>
+            <span class="rule-symbol non-terminal">{{ rule!.origin.name }}</span>
+            <span class="rule-symbol rule-arrow">→</span>
             <span
                 class="rule-symbol"
-                :class="sym.isTerm ? '' : 'rule-symbol-nonterminal'"
+                :class="sym.isTerm ? 'terminal' : 'non-terminal'"
                 v-for="sym in rule?.expansion"
             >{{ sym.name }}</span>
         </div>
@@ -38,15 +38,13 @@ export default defineComponent({
 .rule-symbol {
     margin-right: 4px;
     background-color: whitesmoke;
-    font-weight: bold;
     padding: 0 4px;
-    font-family: "Times New Roman";
 }
 .rule-symbol:last-child {
     margin-right: 0;
 }
-.rule-symbol-nonterminal {
-    font-style: italic;
-    font-family: "Cambria Math";
+
+.rule-arrow {
+    font-family: "Times New Roman";
 }
 </style>

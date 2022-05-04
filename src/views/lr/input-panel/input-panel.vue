@@ -10,12 +10,12 @@
         <div class="input-panel" v-if="!started">
             <div class="grammar-input panel-item">
                 <GTextarea class="input-textarea" resize="none" v-model="grammar"
-                    :placeholder="t('ControlInputPanel.InputGrammarPlaceholder')" style="font-family: 'Cascadia Mono';">
+                    :placeholder="t('ControlInputPanel.InputGrammarPlaceholder')">
                 </GTextarea>
             </div>
             <div class="text-input panel-item">
                 <GTextarea class="input-textarea" resize="none" v-model="text"
-                    :placeholder="t('ControlInputPanel.InputTextPlaceholder')" style="font-family: 'Cascadia Mono';">
+                    :placeholder="t('ControlInputPanel.InputTextPlaceholder')">
                 </GTextarea>
             </div>
         </div>
@@ -173,6 +173,8 @@ export default defineComponent({
 
 .input-textarea {
     height: 100%;
+    /* 等宽字体 */
+    font-family: 'Cascadia Mono';
 }
 
 .rule-panel,

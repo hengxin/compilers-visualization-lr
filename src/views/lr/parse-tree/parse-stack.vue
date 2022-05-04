@@ -140,6 +140,5 @@ export default defineComponent({
     width: 100%;
     overflow: hidden;
     color: white;
-    font-size: 12px;
 }
 </style>

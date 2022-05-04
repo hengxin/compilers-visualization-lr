@@ -25,6 +25,7 @@ export default defineComponent({
     color: #333333;
     cursor: pointer;
     font-weight: bold;
+    user-select: none;
 }
 
 .__g-button-type-default {

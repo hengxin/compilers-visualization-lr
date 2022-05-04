@@ -51,12 +51,13 @@ export default defineComponent({
 
 <style scoped>
 .g-radio-button {
-    padding: 8px 12px;
+    padding: 6px 8px;
     border: 1px var(--color-gainsboro) solid;
     border-right-width: 0;
     background-color: var(--color-white);
     cursor: pointer;
     font-weight: bold;
+    font-size: 1em;
 }
 .g-radio-button:first-child {
     border-radius: 2px 0 0 2px;

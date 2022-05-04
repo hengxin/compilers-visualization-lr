@@ -9,16 +9,16 @@
         ref="stateContainerRef"
     >
         <div class="state-id">
-            <span>I</span>
-            <sub class="state-id-sub">{{ state.id }}</sub>
+            <span class="non-terminal">I</span>
+            <sub class="terminal">{{ state.id }}</sub>
             <template v-if="mergeFromList.length !== 0">
-                <span style="font-style: normal;">&nbsp;(</span>
+                <span>&nbsp;(</span>
                 <template v-for="(id, index) in mergeFromList">
-                    <span>I</span>
-                    <sub class="state-id-sub">{{id}}</sub>
+                    <span class="non-terminal">I</span>
+                    <sub class="terminal">{{id}}</sub>
                     <span v-if="index !== mergeFromList.length - 1">,</span>
                 </template>
-                <span style="font-style: normal;">)</span>
+                <span>)</span>
             </template>
         </div>
         <div class="state-kernel" :key="updateStateKey">
@@ -36,6 +36,12 @@
                 class="lr-item"
                 :lr-item="lrItem"
             ></LrItemComponent>
+        </div>
+        <div class="state-accept" v-if="state.end">
+            <svg class="accept-svg" width="10" height="15">
+                <polyline class="accept-arrow" points="5,0 5,12 0,7 5,12 10,7"></polyline>
+            </svg>
+            <div class="terminal" style="line-height: 12px;">accept</div>
         </div>
     </div>
 </template>
@@ -124,6 +130,7 @@ export default defineComponent({
 </script>
 <style scoped>
 .state-container {
+    position: relative;
     border: 3px var(--color-klein-blue) dashed;
     width: fit-content;
 }
@@ -150,16 +157,12 @@ export default defineComponent({
     border-style: solid;
 }
 .state-id {
-    font-weight: bold;
-    font-style: italic;
     text-align: center;
     width: 100%;
     font-family: "Times New Roman";
     background-color: rgba(255, 255, 255, 0.85);
 }
-.state-id-sub {
-    font-style: normal;
-}
+
 .state-kernel {
     background-color: rgba(255, 255, 255, 0.85);
 }
@@ -202,5 +205,24 @@ export default defineComponent({
     100% {
         border-color: var(--color-klein-blue);
     }
+}
+
+.state-accept {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.accept-arrow {
+    stroke: green;
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    fill: none;
+}
+
+.accept-svg {
+    display: block;
+    margin: 0 auto;
 }
 </style>

@@ -166,7 +166,16 @@ class LRItemSet {
         this.kernel = kernel;
         this.id = id;
         this.closure = [];
-        this.kernel.forEach((item) => { this.closure.push(item); });
+        this.kernel.forEach((item) => {
+            this.closure.push(item);
+            const rightSym = item.current();
+            if (!rightSym) {
+                this.accepting = true;
+                if (item.rule.origin === SYMBOL_START) {
+                    this.end = true;
+                }
+            }
+        });
     }
 
     toString(): string {
@@ -224,14 +233,15 @@ class LRItemSet {
             let stepRes: Array<LRItem> = [];
             // 遍历闭包中的每一项[A -> a·Bb]
             let item = this.closure[this.searchIndex];
-            let rightSym: _Symbol = item.rule.expansion[item.index];
+            const rightSym = item.current();
+            // **这段代码功能转移到构造函数**
             // 如果rightSym为undefined，说明某一个LR(0)项的index已经到了末尾，那么这个项集对应的状态为接受状态。
-            if (!rightSym) {
-                this.accepting = true;
-                if (item.rule.origin === SYMBOL_START) {
-                    this.end = true;
-                }
-            }
+            // if (!rightSym) {
+            //     this.accepting = true;
+            //     if (item.rule.origin === SYMBOL_START) {
+            //         this.end = true;
+            //     }
+            // }
             // 寻找产生式B -> r
             for (let rule of PARSER_STORE.rules) {
                 if (rightSym === rule.origin) {
@@ -437,6 +447,7 @@ class Automaton {
             }
             if (closureAvailable) {
                 // throw error
+                throw new Error();
             } else {
                 state.closureDone = true;
             }
@@ -1080,6 +1091,9 @@ class InteractiveLrParser {
     }
     parseByStep(): ParseStepResult {
         if (!this.parseTable.done) {
+            throw new Error();
+        }
+        if (this.done) {
             throw new Error();
         }
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];

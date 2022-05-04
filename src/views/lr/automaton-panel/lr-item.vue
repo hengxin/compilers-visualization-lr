@@ -33,20 +33,13 @@ export default defineComponent({
 }
 
 /* 字体与样式 */
-.lr-item-symbol,
 .lr-item-dot {
     font-weight: bold;
 }
 
-.terminal {
-    font-family: "Times New Roman";
-}
-
-.non-terminal,
 .lr-item-arrow,
-.lr-item-dot,
 .lr-item-comma {
-    font-family: "Cambria Math";
+    font-family: "Times New Roman";
 }
 
 .lr-item-arrow,
