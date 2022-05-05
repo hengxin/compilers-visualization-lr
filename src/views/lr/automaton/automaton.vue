@@ -75,7 +75,7 @@ import EventBus from "@/utils/eventbus";
 import StateItem from "./state-item.vue";
 import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult, ParseStepResult } from "@/parsers/lr";
 import { useLrStore } from "@/stores";
-import { StateItemData, LineBlockType, LineBlockData, ColumnData } from "./automaton-panel";
+import { StateItemData, LineBlockType, LineBlockData, ColumnData } from "./automaton";
 import { GLoading } from "@/components";
 
 const GAP_OUT = 16;

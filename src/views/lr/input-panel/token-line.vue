@@ -21,7 +21,7 @@
 <script lang="ts">
 import { Token } from "@/parsers/lr";
 import { defineComponent, PropType, ref } from "vue";
-import { TokenTagData, hash, colors, ColorPair, inactiveColor, getColorPair } from "./tokenTag";
+import { TokenTagData, inactiveColor, getColorPair } from "./token-tag";
 const props = {
     tokenLine: { type: Array as PropType<Array<Token>>, required: true, default: [] },
     lineNo: { type: Number, required: true },

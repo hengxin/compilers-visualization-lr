@@ -50,7 +50,7 @@ import { computed, defineComponent, PropType, ref, onUnmounted, nextTick } from 
 import { useLrStore } from "@/stores";
 import { LRItem, LRItemSet } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
-import { StateItemData } from "./automaton-panel";
+import { StateItemData } from "./automaton";
 import LrItemComponent from "./lr-item.vue";
 export default defineComponent({
     props: {

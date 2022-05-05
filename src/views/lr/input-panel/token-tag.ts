@@ -1,5 +1,4 @@
 import { Token } from "@/parsers/lr";
-// ColorPair: [backgroundColor, textColor]
 type ColorPair = [string, string];
 interface TokenTagData {
     token: Token,
@@ -38,8 +37,6 @@ function getColorPair(token: Token): ColorPair {
     idx++;
     colorMap.set(token.type, colorPair);
     return colorPair;
-
-    // return colors[hash(token.type) % colors.length];
 }
 
-export { TokenTagData, colors, inactiveColor, hash, ColorPair, getColorPair };
+export { type TokenTagData, inactiveColor, type ColorPair, getColorPair };

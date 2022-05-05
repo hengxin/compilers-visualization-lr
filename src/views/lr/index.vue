@@ -11,7 +11,7 @@
         <GWindow id="parsetable" title="Parse Table"
             :default-style="{ width: 'fit-content', height: 'fit-content', maxWidth: '100%', marginBottom: '4px' }"
             position="absolute" v-if="showParseTable">
-            <ParseTableVue></ParseTableVue>
+            <ParseTable></ParseTable>
         </GWindow>
         <GWindow id="parsetree" title="Parse Tree" :default-style="{ height: '80vh' }"
             position="absolute" v-if="showParseTree">
@@ -32,8 +32,8 @@ import { GWindow, GLoading } from "@/components";
 
 import InputPanel from "./input-panel/input-panel.vue";
 import ControlPanel from "./control-panel/control-panel.vue";
-import Automaton from "./automaton-panel/automaton-panel.vue";
-import ParseTableVue from "./parse-table/parse-table.vue";
+import Automaton from "./automaton/automaton.vue";
+import ParseTable from "./parse-table/parse-table.vue";
 import ParseTree from "./parse-tree/parse-tree.vue";
 
 export default defineComponent({
@@ -41,7 +41,7 @@ export default defineComponent({
         InputPanel,
         ControlPanel,
         Automaton,
-        ParseTableVue,
+        ParseTable,
         ParseTree,
         GWindow, GLoading,
     },
