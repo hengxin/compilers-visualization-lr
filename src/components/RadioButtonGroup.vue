@@ -67,7 +67,7 @@ export default defineComponent({
     border-right-width: 1px;
 }
 .active {
-    background-color: var(--color-klein-blue);
+    background-color: #5976ba;
     color: var(--color-white);
 }
 

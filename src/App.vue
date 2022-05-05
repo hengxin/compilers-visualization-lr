@@ -1,5 +1,7 @@
 <template>
-    <header class="header">VISUAL COMPILER</header>
+    <header class="header">
+        <span>{{t('ProjectName')}}(LR)</span>
+    </header>
     <main class="content">
         <router-view></router-view>
     </main>
@@ -31,6 +33,9 @@ onErrorCaptured((err, instance, info) => {
     background-color: #001529;
     padding: 0 32px;
     color: aliceblue;
+    font-family: "Cascadia Mono", "Courier New", Courier, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", monospace;
+    font-size: 20px;
+    font-weight: bold;
 }
 .content {
     overflow: auto;

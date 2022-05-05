@@ -52,7 +52,7 @@ export default defineComponent({
     transition: background-color 0.3s;
 }
 .__g-switch-core-active {
-    background-color: var(--color-klein-blue);
+    background-color: rgb(89, 118, 186);
 }
 .__g-switch-core-inactive {
     background-color: var(--color-gainsboro);

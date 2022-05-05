@@ -1,32 +1,33 @@
 <template>
     <template v-if="larkLoaded">
-        <GWindow id="input" title="Input Panel" :default-style="{ height: '400px', marginBottom: '4px' }"
+        <GWindow id="input" :title="t('LR.InputPanel.Title')" :default-style="{ height: '400px', marginBottom: '4px' }"
             position="absolute">
             <InputPanel></InputPanel>
         </GWindow>
-        <GWindow id="automaton" title="Automaton" :default-style="{ height: '80vh', marginBottom: '4px' }"
+        <GWindow id="automaton" :title="t('LR.Automaton.Title')" :default-style="{ height: '80vh', marginBottom: '4px' }"
             position="absolute" v-if="showAutomaton">
             <Automaton></Automaton>
         </GWindow>
-        <GWindow id="parsetable" title="Parse Table"
+        <GWindow id="parsetable" :title="t('LR.ParseTable.Title')"
             :default-style="{ width: 'fit-content', height: 'fit-content', maxWidth: '100%', marginBottom: '4px' }"
             position="absolute" v-if="showParseTable">
             <ParseTable></ParseTable>
         </GWindow>
-        <GWindow id="parsetree" title="Parse Tree" :default-style="{ height: '80vh' }"
+        <GWindow id="parsetree" :title="t('LR.ParseTree.Title')" :default-style="{ height: '80vh' }"
             position="absolute" v-if="showParseTree">
             <ParseTree></ParseTree>
         </GWindow>
         <ControlPanel v-if="showControlPanel"></ControlPanel>
     </template>
     <div v-else>
-        <GLoading :text="[t('lr.loadingDependecy'), loadingMsg]"></GLoading>
+        <GLoading :text="[t('LR.LoadingDependecy'), t('LR.LoadingDependecyNotice'), loadingMsg]"></GLoading>
     </div>
 </template>
 <script lang="ts">
 import { ref, defineComponent, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLrStore } from "@/stores";
+import { MessageSchema } from "@/i18n"
 import { LoadDependency } from "@/parsers/lr"
 import { GWindow, GLoading } from "@/components";
 
@@ -47,7 +48,7 @@ export default defineComponent({
     },
     props: { algo: { type: String } },
     setup(props) {
-        const { t, locale } = useI18n({ useScope: "global" });
+        const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
         const lrStore = useLrStore();
         const larkLoaded = ref(false);
         const loadingMsg = ref("");

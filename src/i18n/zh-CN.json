@@ -1,10 +1,28 @@
 {
-    "lr": {
-        "loadingDependecy": "正在加载依赖"
-    },
-    "ControlInputPanel": {
-        "InputGrammarPlaceholder": "在此输入文法",
-        "InputTextPlaceholder": "在此输入要解析的文本",
-        "InitParserError": "语法分析器初始化失败，请检查你的输入是否正确。"
+    "ProjectName": "可视化编译器",
+    "LR": {
+        "LoadingDependecy": "正在加载依赖...",
+        "LoadingDependecyNotice": "如果加载时间过长，请检查您的网络是否畅通。",
+        "InputPanel": {
+            "Title": "输入面板",
+            "AlternateCharacter": "替换字符",
+            "KeepCharacter": "保留字符",
+            "GrammarPlaceholder": "在此输入文法",
+            "TextPlaceholder": "在此输入要解析的文本",
+            "ParseButton": "语法分析",
+            "WordWrap": "自动换行"
+        },
+        "Automaton": {
+            "Title": "自动机"
+        },
+        "ParseTable": {
+            "Title": "语法分析表"
+        },
+        "ParseTree": {
+            "Title": "语法树"
+        },
+        "Error": {
+            "InitParserError": "语法分析器初始化失败，请检查你的输入是否正确。"
+        }
     }
 }
