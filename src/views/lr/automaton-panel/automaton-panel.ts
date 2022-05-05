@@ -1,6 +1,6 @@
 import { LRItemSet, _Symbol } from "@/parsers/lr"
 
-type StateItemHighlight = "normal" | "gold" | "green" | "gray";
+type StateItemHighlight = "normal" | "gold" | "green" | "brown";
 interface StateItemData {
     state: LRItemSet,
     // StateItem的位置
@@ -18,7 +18,7 @@ interface StateItemData {
 }
 
 type LineBlockType = "Right" | "Left" | "Self" | "SameColumn";
-type LineBlockHighlight = "normal" | "green" | "gray";
+type LineBlockHighlight = "normal" | "green" | "brown";
 interface LineBlockData {
     id: number,
     symbol: _Symbol,

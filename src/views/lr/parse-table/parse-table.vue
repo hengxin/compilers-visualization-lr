@@ -85,7 +85,7 @@ export default defineComponent({
 }
 
 .grid-highlight {
-    background-color: gold;
+    background-color: #fff143;
 }
 
 .parse-action {
@@ -104,13 +104,13 @@ export default defineComponent({
 table {
     border-collapse: separate;
     border-spacing: 0;
-    border-top: 2px solid black;
-    border-left: 2px solid black;
+    border-top: 2px solid darkgray;
+    border-left: 2px solid darkgray;
 }
 
 th,
 td {
-    border: 2px solid black;
+    border: 2px solid darkgray;
     border-top: none;
     border-left: none;
     text-align: center;

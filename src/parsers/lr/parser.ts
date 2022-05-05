@@ -6,6 +6,7 @@ import {
     _Symbol,
     Terminal,
     NonTerminal,
+    SYMBOL_START, SYMBOL_END, SYMBOL_EPSILON, SYMBOL_SHARP,
     TERMINAL_NAMES_REVERSE,
 } from "./grammar";
 
@@ -927,14 +928,6 @@ const PARSER_STORE = {
     valueStack: [] as Tree[],
 }
 
-const SYMBOL_START_NAME = "start";
-const SYMBOL_START = new Terminal(SYMBOL_START_NAME);
-const SYMBOL_END_NAME = "$";
-const SYMBOL_END = new Terminal(SYMBOL_END_NAME);
-const SYMBOL_EPSILON_NAME = "$EPSILON"
-const SYMBOL_EPSILON = new Terminal(SYMBOL_EPSILON_NAME);
-const SYMBOL_SHARP_NAME = "#";
-const SYMBOL_SHARP = new Terminal(SYMBOL_SHARP_NAME);
 
 /**
  * 判断b是否为a的子集
@@ -995,6 +988,11 @@ class InteractiveLrParser {
 
     constructor(algo: ParseAlgorithm, rules: Array<Rule>, tokens: Array<Token>, replaceTerminalName: boolean) {
         this.algo = algo;
+
+        // 1. 是否需要替换标点等特殊字符
+        // 此步是使用Lark的限制：形如+-*:[]{}等符号，如果定义文法时没有为这些终结符命名，
+        // Lark会自动将他们命名为PLUS MINUS STAR...
+        // 由于难以修改项目依赖的Lark源码，因此通过一个开关来决定是否需要手动再将这些被命名的终结符换回原来的符号。
         if (!replaceTerminalName) {
             rules.forEach((rule) => {
                 rule.expansion.forEach((sym) => {
@@ -1004,15 +1002,15 @@ class InteractiveLrParser {
                 });
             });
             tokens.forEach((token) => {
-                if (TERMINAL_NAMES_REVERSE[token.type] !== undefined) {
-                    token.type = TERMINAL_NAMES_REVERSE[token.type];
+                if (TERMINAL_NAMES_REVERSE[token.type as string] !== undefined) {
+                    token.type = TERMINAL_NAMES_REVERSE[token.type as string];
                 }
             })
         }
         PARSER_STORE.rules = rules;
         PARSER_STORE.tokens = tokens;
-        PARSER_STORE.tokens.push(new Token(SYMBOL_END.name, SYMBOL_END_NAME, 0, 0, 0, 0, 0, 0));
 
+        // 2. 将所有符号存入Map，并保证符号唯一。
         const saveInSymbolMap = (symbol: _Symbol): _Symbol => {
             if (!PARSER_STORE.symbolMap.has(symbol.name)) {
                 PARSER_STORE.symbolMap.set(symbol.name, symbol);
@@ -1024,7 +1022,7 @@ class InteractiveLrParser {
         saveInSymbolMap(SYMBOL_END);
         // 从产生式中获取所有的符号(Symbol)
         PARSER_STORE.rules.forEach((rule, index) => {
-            if (rule.origin.name === SYMBOL_START_NAME) {
+            if (rule.origin.name === SYMBOL_START.name) {
                 PARSER_STORE.startRule = rule;
             }
             rule.origin = saveInSymbolMap(rule.origin);
@@ -1036,6 +1034,22 @@ class InteractiveLrParser {
         if (!PARSER_STORE.startRule) {
             throw new ParserError(PARSER_EXCEPTION_MSG.START_SYMBOL_NOT_FOUND);
         }
+
+        // 3. 将token.symbol赋值。
+        // 此步也是使用Lark带来的问题，Lark解析出的token.type类型为string，即对应终结符/非终结符的名称。
+        // 而其没有token.symbol这一字段，只能手动对其进行再赋值。
+        // 实际上此处用途很小，不能责怪Lark的设计，毕竟其适用场景与本项目不相同。
+        PARSER_STORE.tokens.forEach((token) => {
+            const sym = PARSER_STORE.symbolMap.get(token.type as string);
+            if (sym === undefined) {
+                throw new Error();
+            }
+            token.symbol = sym;
+        });
+        const endToken = new Token(SYMBOL_END.name, SYMBOL_END.name, 0, 0, 0, 0, 0, 0);
+        endToken.symbol = SYMBOL_END;
+        PARSER_STORE.tokens.push(endToken);
+
         this.automaton = new Automaton(this.algo);
         this.parseTable = new ParseTable(this.automaton);
         if (this.algo !== "LR0") {

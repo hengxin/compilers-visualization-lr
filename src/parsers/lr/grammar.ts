@@ -35,6 +35,15 @@ class NonTerminal extends _Symbol {
     }
 }
 
+const SYMBOL_START_NAME = "start";
+const SYMBOL_START = new Terminal(SYMBOL_START_NAME);
+const SYMBOL_END_NAME = "$";
+const SYMBOL_END = new Terminal(SYMBOL_END_NAME);
+const SYMBOL_EPSILON_NAME = "$EPSILON"
+const SYMBOL_EPSILON = new Terminal(SYMBOL_EPSILON_NAME);
+const SYMBOL_SHARP_NAME = "#";
+const SYMBOL_SHARP = new Terminal(SYMBOL_SHARP_NAME);
+
 class Rule {
     static _type: string = "Rule";
     origin: _Symbol;
@@ -79,6 +88,7 @@ class Rule {
 class Token {
     static _type: string = "Token";
     type: string;
+    symbol: _Symbol;
     value: string;
     startPos: number;
     line: number;
@@ -90,6 +100,7 @@ class Token {
     constructor(type: string, value: string, start_pos: number, line: number,
         column: number, endLine: number, endColumn: number, endPos: number) {
         this.type = type;
+        this.symbol = SYMBOL_SHARP;
         this.value = value;
         this.startPos = start_pos;
         this.line = line;
@@ -151,4 +162,8 @@ const TERMINAL_NAMES_REVERSE: { [name: string]: string } = {
     // 'SPACE': ' ',
 }
 
-export { _Symbol, Terminal, NonTerminal, Rule, Token, TERMINAL_NAMES_REVERSE };
+export {
+    _Symbol, Terminal, NonTerminal,
+    SYMBOL_START, SYMBOL_END, SYMBOL_EPSILON, SYMBOL_SHARP,
+    Rule, Token, TERMINAL_NAMES_REVERSE
+};

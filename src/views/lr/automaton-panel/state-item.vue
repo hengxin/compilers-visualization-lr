@@ -131,27 +131,27 @@ export default defineComponent({
 <style scoped>
 .state-container {
     position: relative;
-    border: 3px var(--color-klein-blue) dashed;
+    border: 3px dashed rgb(89, 118, 186);
     width: fit-content;
 }
 
 .state-highlight-gold {
-    border-color: gold;
+    border-color: #fff143;
 }
 
 .state-highlight-green {
-    border-color: green;
+    border-color: rgb(33, 166, 117);
 }
 
-.state-highlight-gray {
-    border-color: saddlebrown;
+.state-highlight-brown {
+    border-color: rgb(202, 105, 36);
 }
 
 .state-merged {
     animation: 0.8s twinkle;
 }
 .state-active {
-    border-color: gold;
+    border-color: #fff143;
 }
 .state-done {
     border-style: solid;
@@ -191,19 +191,19 @@ export default defineComponent({
 
 @keyframes twinkle {
     0% {
-        border-color: var(--color-klein-blue);
+        border-color: rgb(89, 118, 186);
     }
     25% {
-        border-color: gold;
+        border-color: #fff143;
     }
     50% {
-        border-color: var(--color-klein-blue);
+        border-color: rgb(89, 118, 186);
     }
     75% {
-        border-color: gold;
+        border-color: #fff143;
     }
     100% {
-        border-color: var(--color-klein-blue);
+        border-color: rgb(89, 118, 186);
     }
 }
 
@@ -215,7 +215,7 @@ export default defineComponent({
 }
 
 .accept-arrow {
-    stroke: green;
+    stroke: rgb(33, 166, 117);;
     stroke-width: 2px;
     stroke-linejoin: round;
     fill: none;

@@ -247,7 +247,6 @@ function resize(ev: MouseEvent) {
 }
 function avoidOutOfBound() {
     if (state.pinned || state.maximized || props.position === "absolute") return;
-    console.log(window.innerHeight);
     if (mem.top >= window.innerHeight - 200) {
         mem.top = window.innerHeight - 200;
     }

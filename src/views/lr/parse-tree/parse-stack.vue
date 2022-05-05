@@ -2,8 +2,11 @@
     <div class="parse-stack">
         <div v-for="(val, index) in stackValues" :key="val[0]"
             :class="['stack-block', index % 2 ? 'stack-block-odd' : 'stack-block-even']">
-            <div class="stack-block-text" v-if="mode === 'normal'" :title="val[1].title">{{ val[1].content }}</div>
-            <div class="stack-block-text" v-else :title="val[1].title" v-html="val[1].content"></div>
+            <div class="stack-block-inner"
+                :ref="(el) => handleUpdateBlock(val[0], el as (HTMLDivElement | null))">
+                <div class="stack-block-text" v-if="mode === 'normal'" :title="val[1].title">{{ val[1].content }}</div>
+                <div class="stack-block-text" v-else :title="val[1].title" v-html="val[1].content"></div>
+            </div>
         </div>
         <div v-for="(val, index) in desertedValues" :key="val[0]"
             :class="['stack-block', 'stack-block-deserted', hideDeserted ? 'stack-block-hide' : '', (index) % 2 ? 'stack-block-odd' : 'stack-block-even']">
@@ -15,7 +18,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, PropType, ref } from "vue";
+import { defineComponent, nextTick, PropType, ref } from "vue";
 type StackBlockValue = { title?: string, content: string };
 export default defineComponent({
     props: {
@@ -32,7 +35,7 @@ export default defineComponent({
         const hideDeserted = ref(false);
         function push(...values: Array<StackBlockValue>) {
             if (!hideDeserted.value) {
-                timeout = setTimeout(() => { desertedValues.value.splice(0); }, 500);
+                timeout = window.setTimeout(() => { desertedValues.value.splice(0); }, 500);
             }
             hideDeserted.value = true;
             values.forEach(val => stackValues.value.push([Symbol(), val]));
@@ -44,7 +47,50 @@ export default defineComponent({
             hideDeserted.value = false;
             desertedValues.value.push(...stackValues.value.splice(-count, count));
         }
-        return { stackValues, desertedValues, hideDeserted, push, pop };
+
+        // blockInner横向溢出，自动滚动动画
+        const blockInnerDataMap: Map<symbol, [HTMLDivElement, number | undefined]> = new Map();
+        async function handleUpdateBlock(key: symbol, el: HTMLDivElement | null) {
+            if (el === null) {
+                const blockInnerData = blockInnerDataMap.get(key);
+                if (blockInnerData) {
+                    clearInterval(blockInnerData[1]);
+                    blockInnerDataMap.delete(key);
+                }
+                return;
+            }
+            let stackBlockRef = blockInnerDataMap.get(key);
+            if (stackBlockRef !== undefined) {
+                return;
+            }
+            await nextTick();
+            const d = (el.firstElementChild as HTMLDivElement).offsetWidth - el.offsetWidth;
+            const roll = function(moveEl: HTMLDivElement, delta: number) {
+                let step = 0;
+                const pause = 15;
+                return function() {
+                    if (step >= pause + (delta + 1) + pause + (delta + 1)) {
+                        step = 0;
+                    }
+
+                    if (step < pause) {
+                        // do nothing
+                    } else if (step < pause + (delta + 1)) {
+                        moveEl.style.transform = "translateX(-" + (step - pause) + "px)";
+                    } else if (step < pause + (delta + 1) + pause) {
+                        // do nothing
+                    } else if (step < pause + (delta + 1) + pause + (delta + 1)) {
+                        moveEl.style.transform = "translateX(-" + (pause + (delta + 1) + pause + (delta + 1) - step - 1) + "px)";
+                    }
+                    step++;
+                }
+            }
+            if (d > 0) {
+                const intervalId = window.setInterval(roll((el.firstElementChild as HTMLDivElement), d), 80);
+                blockInnerDataMap.set(key, [el, intervalId]);
+            }
+        }
+        return { stackValues, desertedValues, hideDeserted, push, pop, handleUpdateBlock };
     },
 });
 </script>
@@ -136,9 +182,14 @@ export default defineComponent({
     }
 }
 
-.stack-block-text {
-    width: 100%;
+.stack-block-inner {
     overflow: hidden;
+    width: 100%;
+}
+
+.stack-block-text {
+    width: fit-content;
+    margin: 0 auto;
     color: white;
 }
 </style>

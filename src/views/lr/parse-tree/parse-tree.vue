@@ -177,7 +177,6 @@ function mergeTree(root: Tree, numOfChildren: number) {
 }
 
 async function handleParseTreeStep(step: ParseStepResult) {
-    console.log(step);
     if (step.action.name === "Shift") {
         // Shift
         operation.value = step.action;

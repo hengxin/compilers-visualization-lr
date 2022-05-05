@@ -1,15 +1,19 @@
 <template>
-    <div class="token-line">
+    <div class="token-line" :class="[wrap ? 'token-line-wrap' : '']">
         <span class="token-line-no">{{ lineNo }}</span>
-        <div class="token-line-item">
+        <div class="token-line-item" :class="[wrap ? 'token-line-item-wrap' : '']">
             <div
                 class="token-tag"
                 v-for="tag in tagList"
                 :style="tag.active ? { backgroundColor: tag.color[0], color: tag.color[1], borderColor: tag.color[1] } :
                     { backgroundColor: inactiveColor[0], color: inactiveColor[1], borderColor: inactiveColor[1] }"
             >
-                <!-- <div class="token-tag-sm">[{{ tag.token.type }}]</div> -->
-                <div>{{ tag.token.value }}</div>
+                <span :class="tag.token.symbol.isTerm ? 'terminal' : 'non-terminal'">{{ tag.token.symbol.name }}</span>
+                <template v-if="tag.token.symbol.name !== tag.token.value">
+                    <span>(</span>
+                    <span class="non-terminal">{{ tag.token.value }}</span>
+                    <span>)</span>
+                </template>
             </div>
         </div>
     </div>
@@ -21,6 +25,7 @@ import { TokenTagData, hash, colors, ColorPair, inactiveColor, getColorPair } fr
 const props = {
     tokenLine: { type: Array as PropType<Array<Token>>, required: true, default: [] },
     lineNo: { type: Number, required: true },
+    wrap: { type: Boolean, default: false },
 }
 export default defineComponent({
     props,
@@ -53,20 +58,27 @@ export default defineComponent({
 .token-line-item {
     display: flex;
     flex-direction: row;
-    font-family: "Times New Roman";
 }
+
+.token-line-wrap {
+    align-items: flex-start;
+}
+
+.token-line-item-wrap {
+    flex-wrap: wrap;
+}
+
 .token-tag {
     flex-basis: 0;
     text-align: center;
     margin: 0 4px 2px 0;
     padding: 0 4px;
-    font-weight: bold;
     border-radius: 4px;
     border-width: 1px;
     border-style: solid;
 }
-.token-tag-sm {
+/* .token-tag-sm {
     font-style: italic;
     font-weight: normal;
-}
+} */
 </style>

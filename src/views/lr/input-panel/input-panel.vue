@@ -24,16 +24,20 @@
                 <RuleLine class="rule-line" v-for="(rule, index) in ruleList" :rule="rule" :index="index"></RuleLine>
             </div>
             <div class="token-panel panel-item">
-                <div class="token-line-container">
+                <div class="token-line-wrap-check">
+                    <input type="checkbox" v-model="tokenLineWrap">
+                    <label>自动换行</label>
+                </div>
+                <div class="token-line-container" :class="[tokenLineWrap ? 'token-line-container-wrap' : '']">
                     <TokenLine class="token-line" v-for="(tokenLine, key) in tokenLineList" :token-line="tokenLine"
-                        :lineNo="key + 1"></TokenLine>
+                        :lineNo="key + 1" :wrap="tokenLineWrap"></TokenLine>
                 </div>
             </div>
         </div>
     </div>
 </template>
 <script lang="ts">
-import { ref, defineComponent, watch, onUnmounted } from "vue";
+import { ref, defineComponent, watch, onUnmounted, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useLrStore } from "@/stores";
@@ -91,6 +95,9 @@ export default defineComponent({
                 initTokenTagData();
                 lrStore.showControlPanel = true;
                 lrStore.showAutomaton = true;
+                nextTick(() => {
+                    document.getElementById("automaton")?.scrollIntoView({ behavior: "smooth" });
+                });
             } catch (e) {
                 GNotification({
                     title: t("ControlInputPanel.InitParserError"),
@@ -118,6 +125,11 @@ export default defineComponent({
             }
         }
 
+        const tokenLineWrap = ref(false);
+        function changeTokenLineWrap() {
+            tokenLineWrap.value = !tokenLineWrap.value;
+        }
+
         function handleReset() {
             grammar.value = "";
             text.value = "";
@@ -136,7 +148,8 @@ export default defineComponent({
         return {
             t, parse,
             replaceTerminalName,
-            grammar, text, algos, algorithm, ruleList, tokenLineList, started
+            grammar, text, algos, algorithm, ruleList, tokenLineList, started,
+            tokenLineWrap, changeTokenLineWrap,
         };
     }
 });
@@ -148,7 +161,7 @@ export default defineComponent({
     border-top: none;
     display: flex;
     flex-direction: column;
-    min-height: 100%;
+    height: 100%;
 }
 
 .control-panel {
@@ -169,6 +182,7 @@ export default defineComponent({
     display: flex;
     flex-direction: row;
     width: 100%;
+    height: 100%;
 }
 
 .input-textarea {
@@ -183,9 +197,18 @@ export default defineComponent({
     overflow: auto;
 }
 
+.token-line-wrap-check {
+    display: flex;
+    align-items: center;
+}
+
 .token-line-container {
     float: left;
     min-width: 100%;
+}
+
+.token-line-container-wrap {
+    width: 100%;
 }
 
 .panel-item {

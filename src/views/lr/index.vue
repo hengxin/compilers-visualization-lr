@@ -1,19 +1,19 @@
 <template>
     <template v-if="larkLoaded">
-        <GWindow title="Input Panel" :default-style="{ height: '400px', marginBottom: '4px' }"
+        <GWindow id="input" title="Input Panel" :default-style="{ height: '400px', marginBottom: '4px' }"
             position="absolute">
             <InputPanel></InputPanel>
         </GWindow>
-        <GWindow title="Automaton" :default-style="{ height: '80vh', marginBottom: '4px' }"
+        <GWindow id="automaton" title="Automaton" :default-style="{ height: '80vh', marginBottom: '4px' }"
             position="absolute" v-if="showAutomaton">
             <Automaton></Automaton>
         </GWindow>
-        <GWindow title="Parse Table"
+        <GWindow id="parsetable" title="Parse Table"
             :default-style="{ width: 'fit-content', height: 'fit-content', maxWidth: '100%', marginBottom: '4px' }"
             position="absolute" v-if="showParseTable">
             <ParseTableVue></ParseTableVue>
         </GWindow>
-        <GWindow title="Parse Tree" :default-style="{ height: '80vh' }"
+        <GWindow id="parsetree" title="Parse Tree" :default-style="{ height: '80vh' }"
             position="absolute" v-if="showParseTree">
             <ParseTree></ParseTree>
         </GWindow>

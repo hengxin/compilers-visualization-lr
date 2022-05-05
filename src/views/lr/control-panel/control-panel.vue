@@ -155,11 +155,17 @@ function CalcParseTable() {
     parser.parseTable.calc();
     parserStatus.value = ParserStatus.ParseTable;
     lrStore.showParseTable = true;
+    nextTick(() => {
+        document.getElementById("parsetable")?.scrollIntoView({ behavior: "smooth" });
+    });
 }
 
 function startParse() {
     parserStatus.value = ParserStatus.ParseTree;
     lrStore.showParseTree = true;
+    nextTick(() => {
+        document.getElementById("parsetree")?.scrollIntoView({ behavior: "smooth" });
+    });
 }
 
 function parse() {

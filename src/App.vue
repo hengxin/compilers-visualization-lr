@@ -70,7 +70,7 @@ html {
 }
 body {
     margin: 0;
-    font-family: "sans-serif";
+    font-family: Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 a {
     text-decoration: none;

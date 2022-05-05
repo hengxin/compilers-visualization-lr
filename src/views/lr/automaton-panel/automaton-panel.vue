@@ -494,7 +494,7 @@ export default defineComponent({
                         for (let j = 0; j < stateItem.linesIn.length; j++) {
                             const lineBlock = lineBlocks.value.get(stateItem.linesIn[j])!;
                             if (lineBlock.from === data.stateStackDiff[i - 1]) {
-                                lineBlock.highlight = "gray";
+                                lineBlock.highlight = "brown";
                                 colorfulLines.push(stateItem.linesIn[j]);
                                 break;
                             }
@@ -503,12 +503,12 @@ export default defineComponent({
                         for (let j = 0; j < stateItem.linesIn.length; j++) {
                             const lineblock = lineBlocks.value.get(stateItem.linesIn[j])!;
                             if (lineblock.from === data.currentStateId) {
-                                lineblock.highlight = "gray";
+                                lineblock.highlight = "brown";
                                 colorfulLines.push(stateItem.linesIn[j]);
                             }
                         }
                     }
-                    stateItem.highlight = "gray";
+                    stateItem.highlight = "brown";
                     colorfulStates.push(sid);
                 }
             } else {
@@ -686,7 +686,7 @@ svg {
     display: block;
 }
 .state-goto-line {
-    stroke: var(--color-klein-blue);
+    stroke: rgb(89, 118, 186);
     stroke-width: 2;
     stroke-linejoin: round;
     fill: none;
@@ -703,11 +703,11 @@ svg {
 }
 
 .state-goto-line-highlight-green {
-    stroke: green;
+    stroke: rgb(33, 166, 117);
 }
 
-.state-goto-line-highlight-gray {
-    stroke: saddlebrown;
+.state-goto-line-highlight-brown {
+    stroke: rgb(202, 105, 36);
 }
 
 .line-text {
@@ -755,27 +755,27 @@ svg {
     max-width: 300px;
     max-height: 200px;
     overflow: auto;
-    border: 1px solid gray;
+    border: 1px solid darkgray;
     border-bottom: none;
 }
 
 .first-set-row-l {
     position: sticky;
     left: 0;
-    border-right: 1px solid gray;
-    border-bottom: 1px solid gray;
-    padding: 2px;
+    border-right: 1px solid darkgray;
+    border-bottom: 1px solid darkgray;
+    padding: 4px;
     background-color: aliceblue;
 }
 
 .first-set-row-r {
-    border-bottom: 1px solid gray;
-    padding: 2px;
+    border-bottom: 1px solid darkgray;
+    padding: 4px;
 }
 
 .first-set-symbol {
-    border: 1px solid gray;
-    margin-right: 4px;
+    border: 1px solid darkgray;
+    margin-left: 4px;
 }
 
 .first-set-symbol:last-child {

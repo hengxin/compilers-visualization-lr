@@ -60,6 +60,6 @@ export default defineComponent({
 }
 
 .lr-item-symbol {
-    border: 1px gray solid;
+    border: 1px solid darkgray;
 }
 </style>
