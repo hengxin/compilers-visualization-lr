@@ -212,7 +212,7 @@ function reset() {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 48px;
+    bottom: 64px;
     margin: 0 auto;
     width: 500px;
     background-color: white;

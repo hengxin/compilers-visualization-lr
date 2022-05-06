@@ -4,7 +4,7 @@
             <template v-if="operation">
                 <span>{{ t("LR.ParseTree.Action") }}:&nbsp;</span>
                 <span class="non-terminal">{{ operation.abbr }}</span>
-                <span class="terminal">{{ operation.arg }}</span>
+                <span class="terminal" v-show="operation.name !== 'Accept'">{{ operation.arg }}</span>
                 <RuleLine style="margin-left: 8px" v-if="operation.name === 'Reduce'" :rule="operation.rule"></RuleLine>
             </template>
         </div>
@@ -31,7 +31,7 @@
         <div class="parse-stack-title">{{ t('LR.ParseTree.SymbolStack') }}</div>
         <ParseStack ref="valueStackRef" mode="html" color1="#68945c" color2="#6fbe2c"></ParseStack>
     </div>
-    <div class="parse-tree">
+    <div class="parse-tree" ref="parseTreeRef">
         <svg :width="totalWidth" :height="totalHeight">
             <!-- path放在上面是为了不让路径盖住文字 -->
             <path v-for="treePath in treePathList" :key="treePath.id" :d="treePath.pathStr" class="tree-path"
@@ -224,6 +224,40 @@ const unsubscribe = [
     EventBus.subscribe("lr", "ParseTreeStep", handleParseTreeStep),
 ];
 onUnmounted(() => { unsubscribe.forEach(fn => fn()) });
+
+// 拖拽滚动功能
+const parseTreeRef = ref<HTMLDivElement>();
+let mousedown = false;
+let startX = 0, startY = 0;
+let scrollTop = 0, scrollLeft = 0;
+function handleMouseDown(ev: MouseEvent) {
+    ev.preventDefault();
+    startX = ev.pageX;
+    startY = ev.pageY;
+    scrollLeft = parseTreeRef.value!.scrollLeft;
+    scrollTop = parseTreeRef.value!.scrollTop;
+    mousedown = true;
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+}
+function handleMouseMove(ev: MouseEvent) {
+    if (mousedown) {
+        let offsetX = ev.pageX - startX;
+        let offsetY = ev.pageY - startY;
+        parseTreeRef.value!.scrollLeft = scrollLeft - offsetX;
+        parseTreeRef.value!.scrollTop = scrollTop - offsetY;
+    }
+}
+function handleMouseUp() {
+    mousedown = false;
+    scrollLeft = parseTreeRef.value!.scrollLeft;
+    scrollTop = parseTreeRef.value!.scrollTop;
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+}
+onMounted(() => {
+    parseTreeRef.value!.addEventListener("mousedown", handleMouseDown);
+});
 </script>
 <style scoped>
 .parse-message-container {

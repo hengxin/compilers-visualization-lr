@@ -592,38 +592,32 @@ export default defineComponent({
         let mousedown = false;
         let startX = 0, startY = 0;
         let scrollTop = 0, scrollLeft = 0;
+        function handleMouseDown(ev: MouseEvent) {
+            startX = ev.pageX;
+            startY = ev.pageY;
+            scrollLeft = displayPanel.value!.scrollLeft;
+            scrollTop = displayPanel.value!.scrollTop;
+            mousedown = true;
+            document.addEventListener("mousemove", handleMouseMove);
+            document.addEventListener("mouseup", handleMouseUp);
+        }
+        function handleMouseMove(ev: MouseEvent) {
+            if (mousedown) {
+                let offsetX = ev.pageX - startX;
+                let offsetY = ev.pageY - startY;
+                displayPanel.value!.scrollLeft = scrollLeft - offsetX;
+                displayPanel.value!.scrollTop = scrollTop - offsetY;
+            }
+        }
+        function handleMouseUp() {
+            mousedown = false;
+            scrollLeft = displayPanel.value!.scrollLeft;
+            scrollTop = displayPanel.value!.scrollTop;
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
+        }
         onMounted(() => {
-            displayPanel.value!.addEventListener("mousedown", (ev) => {
-                startX = ev.offsetX;
-                startY = ev.offsetY;
-                mousedown = true;
-            });
-            displayPanel.value!.addEventListener("mouseup", () => {
-                mousedown = false;
-            });
-            displayPanel.value!.addEventListener("mousemove", (ev) => {
-                if (mousedown) {
-                    let offsetX = ev.offsetX - startX;
-                    let offsetY = ev.offsetY - startY;
-                    let limitX = displayPanel.value!.scrollWidth - displayPanel.value!.offsetWidth;
-                    let limitY = displayPanel.value!.scrollHeight - displayPanel.value!.offsetHeight;
-                    scrollTop = scrollTop - offsetY;
-                    scrollLeft = scrollLeft - offsetX;
-                    if (scrollTop >= limitY) {
-                        scrollTop = limitY;
-                    } else if (scrollTop <= 0) {
-                        scrollTop = 0;
-                    }
-                    if (scrollLeft >= limitX) {
-                        scrollLeft = limitX;
-                    } else if (scrollLeft <= 0) {
-                        scrollLeft = 0;
-                    }
-                    displayPanel.value!.scrollTop = scrollTop;
-                    displayPanel.value!.scrollLeft = scrollLeft;
-                    // console.log("SCROLL: ", scrollTop, scrollLeft)
-                }
-            });
+            displayPanel.value!.addEventListener("mousedown", handleMouseDown);
         });
 
         const showFirstSetTable = ref(true);
