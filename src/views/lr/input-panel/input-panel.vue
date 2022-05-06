@@ -80,7 +80,7 @@ export default defineComponent({
 }`);
         const algos: Array<ParseAlgorithm> = ["LR0", "LR1", "LR1_LALR1"];
         const algorithm = ref<ParseAlgorithm>("LR0");
-        const replaceTerminalName = ref(false);
+        const replaceTerminalName = ref(true);
         const ruleList = ref<Array<Rule>>([]);
         const tokenList = ref<Array<Token>>([]);
         const started = ref(false);
@@ -94,25 +94,17 @@ export default defineComponent({
             algorithm.value = route.query.a as ParseAlgorithm;
         }
         function parse() {
-            try {
-                InitParser(algorithm.value, grammar.value, text.value, replaceTerminalName.value);
-                const parser = GetParser();
-                started.value = true;
-                ruleList.value = parser.store.rules;
-                tokenList.value = parser.store.tokens;
-                initTokenTagData();
-                lrStore.showControlPanel = true;
-                lrStore.showAutomaton = true;
-                nextTick(() => {
-                    document.getElementById("automaton")?.scrollIntoView({ behavior: "smooth" });
-                });
-            } catch (e) {
-                GNotification({
-                    title: t("ControlInputPanel.InitParserError"),
-                    content: (e as Error).message,
-                    type: "error",
-                });
-            }
+            InitParser(algorithm.value, grammar.value, text.value, replaceTerminalName.value);
+            const parser = GetParser();
+            started.value = true;
+            ruleList.value = parser.store.rules;
+            tokenList.value = parser.store.tokens;
+            initTokenTagData();
+            lrStore.showControlPanel = true;
+            lrStore.showAutomaton = true;
+            nextTick(() => {
+                document.getElementById("automaton")?.scrollIntoView({ behavior: "smooth" });
+            });
         }
 
         const tokenLineList = ref<Array<Array<Token>>>([]);

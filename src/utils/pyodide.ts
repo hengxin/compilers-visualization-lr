@@ -1,4 +1,5 @@
 import { loadScript } from "vue-plugin-load-script";
+import { CommonError } from "@/utils/exception";
 
 interface PyProxy {
     destroy(destroyed_msg?: string): any;
@@ -36,7 +37,7 @@ async function LoadPyodide(this: any, callback: (s: string) => void): Promise<Py
 
 function GetPyodide(): Pyodide {
     if (pyodide === undefined) {
-        throw new Error("Pyodide not loaded");
+        throw new CommonError("PyodideNotLoaded");
     }
     return pyodide;
 }

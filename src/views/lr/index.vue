@@ -24,12 +24,13 @@
     </div>
 </template>
 <script lang="ts">
-import { ref, defineComponent, onMounted, computed } from "vue";
+import { ref, defineComponent, onErrorCaptured, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLrStore } from "@/stores";
 import { MessageSchema } from "@/i18n"
-import { LoadDependency } from "@/parsers/lr"
-import { GWindow, GLoading } from "@/components";
+import { LoadDependency, ParserError, ParserInfo } from "@/parsers/lr"
+import { GWindow, GLoading, GNotification } from "@/components";
+import { CommonError } from "@/utils/exception";
 
 import InputPanel from "./input-panel/input-panel.vue";
 import ControlPanel from "./control-panel/control-panel.vue";
@@ -49,6 +50,29 @@ export default defineComponent({
     props: { algo: { type: String } },
     setup(props) {
         const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
+
+        onErrorCaptured((err, instance, info) => {
+            if (err instanceof ParserError) {
+                GNotification({
+                    title: t("LR.Exception." + err.message) + (err.extra ? err.extra : ""),
+                    content: t("LR.Exception.ParserErrorExtra"),
+                    type: "error"
+                })
+            } else if (err instanceof ParserInfo) {
+                GNotification({ title: t("LR.Exception." + err.message), content: "", type: "info" });
+            } else if (err instanceof CommonError) {
+                GNotification({
+                    title: t("LR.Exception." + err.message),
+                    content: err.extra ? err.extra : "",
+                    type: "error"
+                });
+            } else {
+                return true;
+            }
+            // return值表示是否还要将错误传递给上层组件
+            return false;
+        });
+
         const lrStore = useLrStore();
         const larkLoaded = ref(false);
         const loadingMsg = ref("");

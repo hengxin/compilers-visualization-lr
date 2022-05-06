@@ -18,23 +18,9 @@
 </template>
 
 <script setup lang="ts">
-import { onErrorCaptured } from "vue";
 import { useI18n } from "vue-i18n";
 import { MessageSchema } from "./i18n";
-import { GNotification } from "@/components/index"
-
 const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
-
-onErrorCaptured((err, instance, info) => {
-    GNotification({
-        title: err.name,
-        content: err.message,
-        type: "error",
-    });
-    // return值表示是否还要将错误传递给上层组件
-    return false;
-});
-
 </script>
 <style scoped>
 .header {

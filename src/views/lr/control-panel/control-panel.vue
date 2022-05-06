@@ -135,9 +135,6 @@ function FindNextState(): boolean {
 }
 
 async function skipAutomaton() {
-    if (manual.value) {
-        throw new Error();
-    }
     lrStore.automatonLoading = true;
     // 这里使用setTimeout是为了事件顺序，让loading先显示？
     setTimeout(async () => {

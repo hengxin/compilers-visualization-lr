@@ -1,11 +1,12 @@
 import { GetPyodide, LoadPyodide } from "@/utils/pyodide";
+import { CommonError } from "@/utils/exception";
 import { InteractiveLrParser, ParseAlgorithm, Rule, Token } from "@/parsers/lr";
 
 async function LoadDependency(callback: (s: string) => void) {
     callback("Loading Pyodide...");
     const pyodide = await LoadPyodide(callback)
     if (pyodide === undefined) {
-        throw new Error();
+        throw new CommonError("PyodideLoadFailed");
     }
     callback("Installing Lark...");
     await pyodide.runPythonAsync("await micropip.install('lark')");
@@ -17,6 +18,8 @@ async function LoadDependency(callback: (s: string) => void) {
 let parser: InteractiveLrParser | undefined = undefined;
 
 function InitParser(algorithm: ParseAlgorithm, grammar: string, text: string, replaceTerminalName: boolean) {
+    try {
+
     const pyodide = GetPyodide();
     const ruleList: Array<Rule> = [];
     const tokenList: Array<Token> = [];
@@ -55,12 +58,15 @@ function InitParser(algorithm: ParseAlgorithm, grammar: string, text: string, re
     pyodide.runPython(code);
     const _parser = new InteractiveLrParser(algorithm, ruleList, tokenList, replaceTerminalName);
     parser = _parser;
-    return _parser;
+
+    } catch (e) {
+        throw new CommonError("InitParserError", (e instanceof Error) ? e.message : undefined);
+    }
 }
 
 function GetParser(): InteractiveLrParser {
     if (parser === undefined) {
-        throw new Error("Parser not inited");
+        throw new CommonError("ParserNotInited");
     }
     return parser;
 }

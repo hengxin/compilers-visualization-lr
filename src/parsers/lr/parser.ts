@@ -1,4 +1,4 @@
-import { ParserError, PARSER_EXCEPTION_MSG } from "./parser-exception";
+import { ParserError, ParserInfo, PARSER_EXCEPTION_MSG } from "./exception";
 import { Tree } from "./tree";
 import {
     Token,
@@ -92,9 +92,6 @@ class LRItem {
      * 仅比较两个LR1项的LR0部分是否相同，即产生式和点的位置是否相同，忽略向前看符号。
      */
     equalLR0(other: LRItem): boolean {
-        if (!(other instanceof LRItem)) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_TYPE_NOT_MATCH);
-        }
         return other.rule === this.rule && other.index === this.index;
     }
 
@@ -227,7 +224,7 @@ class LRItemSet {
 
     calcClosure(algo: ClosureAlgorithm): Array<Array<LRItem>> {
         if (this.closureDone) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_CALC_DONE);
+            throw new ParserInfo(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_HAVE_CALCULATED);
         }
         let steps: Array<Array<LRItem>> = [];
         while (!this.closureDone) {
@@ -396,8 +393,6 @@ class Automaton {
      */
     effects: Array<Array<Array<[number, number]>>> = [];
     propagated: boolean = false;
-
-    // statePtr: number = 0;
     private spontaneouslyGenerated: boolean = false;
 
     constructor(type: ParseAlgorithm) {
@@ -421,7 +416,7 @@ class Automaton {
 
     CalcStateClosure(stateId: number, algo: ParseAlgorithm) {
         if (this.states[stateId] === undefined) {
-            // throw
+            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_NOT_FOUND);
         }
         if (algo === "LR0" || algo === "LR0_LALR1") {
             this.states[stateId].calcClosure("LR0");
@@ -433,7 +428,7 @@ class Automaton {
 
     AppendStates(stateId: number): AppendStateResult {
         if (this.states[stateId] === undefined) {
-            // throw State not found
+            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_NOT_FOUND);
         }
         let state = this.states[stateId];
         if (!state.closureDone) {
@@ -447,14 +442,13 @@ class Automaton {
                 closureAvailable = true;
             }
             if (closureAvailable) {
-                // throw error
-                throw new Error();
+                throw new ParserInfo(PARSER_EXCEPTION_MSG.AUTOMATON_STATE_CLOSURE_NEED_CALCULATE);
             } else {
                 state.closureDone = true;
             }
         }
         if (state.appended) {
-            // throw info
+            throw new ParserInfo(PARSER_EXCEPTION_MSG.AUTOMATON_STATE_CLOSURE_HAVE_APPENDED);
         }
         state.appended = true;
         let transitionKernelMap = new Map<_Symbol, Array<LRItem>>();
@@ -515,16 +509,12 @@ class Automaton {
             targetArr.push({ symbol: sym, state: this.states[target] });
         });
         this.transitions.set(stateId, trans);
-        // this.statePtr++;
-        // if (this.statePtr >= this.states.length) {
-        //     this.done = true;
-        // }
         return { from: stateId, targets: targetArr };
     }
 
     MergeLookaheads(stateId: number) {
         if (this.states[stateId] === undefined) {
-            // throw
+            throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_NOT_FOUND);
         }
         this.states[stateId].mergeLookaheads();
         return this.states[stateId];
@@ -585,7 +575,7 @@ class Automaton {
      */
     propagatedAndSpontaneouslyGenerate() {
         if (this.type !== "LR0_LALR1") {
-            // 
+            throw new ParserError(PARSER_EXCEPTION_MSG.INVALID_OPERATION);
         }
         /** 等价于图4-47的INIT列。　*/
         let generates = new Map<number, Map<number, Set<_Symbol>>>();
@@ -656,7 +646,7 @@ class Automaton {
             throw new ParserError(PARSER_EXCEPTION_MSG.LOOKAHEADS_HAVE_PROPAGATED);
         }
         if (!this.spontaneouslyGenerated) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.HAVE_NOT_SPONTANEOUSLY_GENERATED);
+            throw new ParserError(PARSER_EXCEPTION_MSG.NEED_SPONTANEOUSLY_GENERATE);
         }
         let increased = false;
         this.states.forEach((state) => state.kernel.forEach((item, itemIndex) => {
@@ -838,7 +828,7 @@ class ParseTable {
 
     calc() {
         if (this.done) {
-            throw new Error();
+            throw new ParserInfo(PARSER_EXCEPTION_MSG.PARSE_TABLE_HAVE_CALCULATED);
         }
         PARSER_STORE.symbolMap.forEach((sym) => {
             if (sym === SYMBOL_START) {
@@ -1042,7 +1032,7 @@ class InteractiveLrParser {
         PARSER_STORE.tokens.forEach((token) => {
             const sym = PARSER_STORE.symbolMap.get(token.type as string);
             if (sym === undefined) {
-                throw new Error();
+                throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
             }
             token.symbol = sym;
         });
@@ -1105,17 +1095,14 @@ class InteractiveLrParser {
     }
     parseByStep(): ParseStepResult {
         if (!this.parseTable.done) {
-            throw new Error();
+            throw new ParserInfo(PARSER_EXCEPTION_MSG.PARSE_TABLE_NEED_CALCULATE);
         }
         if (this.done) {
-            throw new Error();
+            throw new ParserInfo(PARSER_EXCEPTION_MSG.PARSER_DONE);
         }
         let stateId = PARSER_STORE.stateStack[PARSER_STORE.stateStack.length - 1];
-        let symOfCurrent = PARSER_STORE.symbolMap.get(
-            (this.current instanceof Token) ? this.current.type : this.current.symbol.name);
-        if (symOfCurrent === undefined) {
-            throw new ParserError(PARSER_EXCEPTION_MSG.FATAL_ERROR);
-        }
+        // Token类型和Tree类型都有symbol这一字段
+        let symOfCurrent = this.current.symbol;
         let operation: ParseOperation | undefined = undefined;
 
         let action = this.parseTable.get(symOfCurrent.isTerm ? "ACTION" : "GOTO", stateId, symOfCurrent);

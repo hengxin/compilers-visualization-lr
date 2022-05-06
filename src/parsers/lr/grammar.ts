@@ -1,3 +1,5 @@
+import { ParserError, PARSER_EXCEPTION_MSG } from "./exception";
+
 class _Symbol {
     name: string;
     isTerm: boolean = false;
@@ -11,7 +13,7 @@ class _Symbol {
         } else if (type === NonTerminal._type) {
             return new NonTerminal(data.name);
         } else {
-            throw new Error();
+            throw new ParserError(PARSER_EXCEPTION_MSG.DESERIALIZE_FAILED);
         }
     };
     eq(other: _Symbol) {
@@ -61,7 +63,7 @@ class Rule {
     static deserialize(data: any) {
         let type = data.__type__ as string;
         if (type !== Rule._type) {
-            throw new Error();
+            throw new ParserError(PARSER_EXCEPTION_MSG.DESERIALIZE_FAILED);
         }
         return new Rule(
             _Symbol.deserialize(data.origin),
@@ -113,7 +115,7 @@ class Token {
     static deserialize(data: any) {
         let type = data.__type__ as string;
         if (type !== Token._type) {
-            throw new Error();
+            throw new ParserError(PARSER_EXCEPTION_MSG.DESERIALIZE_FAILED);
         }
         return new Token(
             data.type as string, data.value as string,
