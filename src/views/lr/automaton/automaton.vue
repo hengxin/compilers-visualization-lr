@@ -54,7 +54,7 @@
     </div>
     <div class="first-set-panel" v-if="algorithm !== 'LR0'">
         <div class="first-set-header">
-            <span>FirstSet</span>
+            <span>{{ t('LR.Automaton.FirstSet') }}</span>
             <span class="first-set-table-btn" @click="changeShowFirstSetTable">{{showFirstSetTable ? "&gt;" : "&lt;"}}</span>
         </div>
         <div class="first-set-table" v-show="showFirstSetTable">
@@ -66,17 +66,19 @@
             </template>
         </div>
     </div>
-    <GLoading v-if="automatonLoading" :text="'正在计算...'"></GLoading>
+    <GLoading v-if="automatonLoading" :text="t('LR.Automaton.Calculating')"></GLoading>
 </template>
 
 <script lang="ts">
 import { computed, defineComponent, nextTick, onMounted, onUnmounted, ref } from "vue";
-import EventBus from "@/utils/eventbus";
-import StateItem from "./state-item.vue";
-import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult, ParseStepResult } from "@/parsers/lr";
+import { useI18n } from "vue-i18n";
 import { useLrStore } from "@/stores";
-import { StateItemData, LineBlockType, LineBlockData, ColumnData } from "./automaton";
+import { MessageSchema } from "@/i18n";
 import { GLoading } from "@/components";
+import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult, ParseStepResult } from "@/parsers/lr";
+import EventBus from "@/utils/eventbus";
+import { StateItemData, LineBlockType, LineBlockData, ColumnData } from "./automaton";
+import StateItem from "./state-item.vue";
 
 const GAP_OUT = 16;
 const GAP_IN = 8;
@@ -116,6 +118,7 @@ export default defineComponent({
         GLoading,
     },
     setup() {
+        const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
         const lrStore = useLrStore();
         const parser = GetParser();
         const automatonLoading = computed(() => lrStore.automatonLoading);
@@ -644,6 +647,7 @@ export default defineComponent({
         }
 
         return {
+            t,
             automatonLoading,
             stateItems, lineBlocks, displayPanel,
             updateState, stateRefs,

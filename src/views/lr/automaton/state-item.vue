@@ -148,7 +148,7 @@ export default defineComponent({
 }
 
 .state-merged {
-    animation: 0.8s twinkle;
+    animation: 2s twinkle;
 }
 .state-active {
     border-color: #fff143;

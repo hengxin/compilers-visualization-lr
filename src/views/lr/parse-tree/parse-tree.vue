@@ -2,7 +2,7 @@
     <div class="parse-message-container">
         <div class="parse-operations">
             <template v-if="operation">
-                <span>动作:&nbsp;</span>
+                <span>{{ t("LR.ParseTree.Action") }}:&nbsp;</span>
                 <span class="non-terminal">{{ operation.abbr }}</span>
                 <span class="terminal">{{ operation.arg }}</span>
                 <RuleLine style="margin-left: 8px" v-if="operation.name === 'Reduce'" :rule="operation.rule"></RuleLine>
@@ -10,14 +10,14 @@
         </div>
         <div class="parse-current">
             <template v-if="(nextToken instanceof Token)">
-                <span>NextToken:&nbsp;</span>
+                <span>{{ t("LR.ParseTree.NextToken") }}:&nbsp;</span>
                 <div class="parse-current-text terminal">
                     <span>{{ nextToken.type }}</span>
                     <span v-if="nextToken.type !== nextToken.value">({{ nextToken.value }})</span>
                 </div>
             </template>
             <template v-else>
-                <span>NextSymbol:&nbsp;</span>
+                <span>{{ t("LR.ParseTree.NextSymbol") }}:&nbsp;</span>
                 <div class="parse-current-text non-terminal">
                     <span>{{ (nextToken as Tree).symbol.name }}</span>
                 </div>
@@ -25,10 +25,10 @@
         </div>
     </div>
     <div class="parse-stack-container">
-        <div class="parse-stack-title">状态栈</div>
+        <div class="parse-stack-title">{{ t('LR.ParseTree.StateStack') }}</div>
         <ParseStack ref="stateStackRef" style="margin-right: 8px;" mode="html" color1="#5976ba" color2="#b0c4de">
         </ParseStack>
-        <div class="parse-stack-title">符号栈</div>
+        <div class="parse-stack-title">{{ t('LR.ParseTree.SymbolStack') }}</div>
         <ParseStack ref="valueStackRef" mode="html" color1="#68945c" color2="#6fbe2c"></ParseStack>
     </div>
     <div class="parse-tree">
@@ -49,12 +49,15 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
+import { MessageSchema } from "@/i18n";
 import { GetParser, ParseStepResult, Action, Tree, _Symbol, Token, SYMBOL_END } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 
 import ParseStack from "./parse-stack.vue";
 import RuleLine from "../input-panel/rule-line.vue";
 
+const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
 const parser = GetParser();
 const nextToken = ref(parser.current);
 const operation = ref<Action>();
@@ -197,6 +200,7 @@ async function handleParseTreeStep(step: ParseStepResult) {
         mergeTree(step.next as Tree, step.valueStackDiff.length);
     } else if (step.action.name === "Goto") {
         // Goto
+        operation.value = step.action;
         step.stateStackDiff.forEach(value => stateStackRef.value?.push({
             content: "<span class=\"non-terminal\">I</span><sub class=\"terminal\">" + value.toString() + "</sub>",
         }));
@@ -206,6 +210,7 @@ async function handleParseTreeStep(step: ParseStepResult) {
         }));
     } else {
         // TODO ACC
+        operation.value = step.action;
     }
     nextToken.value = step.next;
 }

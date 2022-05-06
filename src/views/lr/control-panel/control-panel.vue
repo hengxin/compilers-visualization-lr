@@ -4,44 +4,56 @@
         <template v-if="automatonStatus === AutomatonStatus.Calculate">
         <!-- 自动机控制面板 -->
             <div class="control-panel-group">
-                <div>当前操作状态：<span class="non-terminal">I</span><sub class="non-terminal">{{ currentStateId }}</sub></div>
-                <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure()">计算闭包</GButton>
-                <GButton v-show="showAppendStatesButton" type="success" @click="AppendStates()">状态转换</GButton>
-                <GButton v-show="!manual" type="info" @click="skipAutomaton()">skip</GButton>
+                <div>
+                    {{ t('LR.ControlPanel.CurrentState') }}
+                    <span class="non-terminal">I</span><sub class="non-terminal">{{ currentStateId }}</sub>
+                </div>
+                <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure()">{{ t('LR.ControlPanel.CalcualteClosure') }}</GButton>
+                <GButton v-show="showAppendStatesButton" type="success" @click="AppendStates()">{{ t('LR.ControlPanel.AppendStates') }}</GButton>
+                <GButton v-show="!manual" type="info" @click="skipAutomaton()">{{ t('LR.ControlPanel.Skip') }}</GButton>
             </div>
             <div class="control-panel-group">
-                <span>手动模式：</span>
+                <span>
+                    {{ t('LR.ControlPanel.ManualMode') }}
+                    <a href="https://github.com/hengxin/compilers-visualization-lr/wiki" target="_blank">
+                        <i class="bi bi-question-circle" style="color: gray; font-size: 12px;"></i>
+                    </a>
+                </span>
+                
                 <GSwitch :model-value="manual" @change="SwitchMode" :disabled="manual"></GSwitch>
             </div>
         </template>
         <template v-if="automatonStatus === AutomatonStatus.Merge">
-            <GButton type="info" @click="MergeLr1States()">合并相同核心的LR1项</GButton>
+            <GButton type="info" @click="MergeLr1States()">{{ t('LR.ControlPanel.MergeLR1') }}</GButton>
         </template>
         <template v-if="automatonStatus === AutomatonStatus.Done">
-            <GButton type="info" v-show="showCalcParseTableButton" @click="CalcParseTable()">计算语法分析表</GButton>
+            <GButton type="info" v-show="showCalcParseTableButton" @click="CalcParseTable()">{{ t('LR.ControlPanel.CalculateParseTable') }}</GButton>
         </template>
         </template>
 
         <template v-if="parserStatus === ParserStatus.ParseTable">
-            <GButton type="info" @click="startParse()">StartParse</GButton>
+            <GButton type="info" @click="startParse()">{{ t('LR.ControlPanel.StartParse') }}</GButton>
         </template>
 
         <div class="control-panel-group" v-if="parserStatus === ParserStatus.ParseTree">
-            <GButton type="success" @click="parse()">ParseStep</GButton>
-            <GButton type="info" @click="skipParse()">Skip</GButton>
+            <GButton type="success" @click="parse()">{{ t('LR.ControlPanel.ParseStep') }}</GButton>
+            <GButton type="info" @click="skipParse()">{{ t('LR.ControlPanel.Skip') }}</GButton>
         </div>
         
-        <span v-if="parserStatus === ParserStatus.Done">Finish!</span>
-        <GButton @click="reset()" type="error">Reset</GButton>
+        <span v-if="parserStatus === ParserStatus.Done">{{ t('LR.ControlPanel.Finish') }}</span>
+        <GButton @click="reset()" type="error">{{ t('LR.ControlPanel.Reset') }}</GButton>
     </div>
 </template>
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { MessageSchema } from "@/i18n";
 import { GButton, GSwitch } from "@/components";
 import { useLrStore } from "@/stores";
 import { GetParser } from "@/parsers/lr";
 import EventBus from "@/utils/eventbus";
 
+const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
 const lrStore = useLrStore();
 
 // 手动模式

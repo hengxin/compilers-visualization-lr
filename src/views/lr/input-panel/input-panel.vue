@@ -3,21 +3,26 @@
         <div class="control-panel">
             <template v-if="!started">
                 <GRadioButtonGroup v-model="algorithm" :options="algos"></GRadioButtonGroup>
-                <GSwitch v-model="replaceTerminalName" 
-                    :active-text="t('LR.InputPanel.AlternateCharacter')"
-                    :inactive-text="t('LR.InputPanel.KeepCharacter')"></GSwitch>
+                <div>
+                    <GSwitch v-model="replaceTerminalName" 
+                        :active-text="t('LR.InputPanel.AlternateCharacter')"
+                        :inactive-text="t('LR.InputPanel.KeepCharacter')"></GSwitch>
+                    <a href="https://github.com/hengxin/compilers-visualization-lr/wiki" target="_blank">
+                        <i class="bi bi-question-circle" style="color: gray; font-size: 12px; margin-left: 4px;"></i>
+                    </a>
+                </div>
                 <GButton @click="parse()" type="success">{{t('LR.InputPanel.ParseButton')}}</GButton>
             </template>
         </div>
         <div class="input-panel" v-if="!started">
             <div class="grammar-input panel-item">
                 <GTextarea class="input-textarea" resize="none" v-model="grammar"
-                    :placeholder="t('ControlInputPanel.InputGrammarPlaceholder')">
+                    :placeholder="t('LR.InputPanel.GrammarPlaceholder')">
                 </GTextarea>
             </div>
             <div class="text-input panel-item">
                 <GTextarea class="input-textarea" resize="none" v-model="text"
-                    :placeholder="t('ControlInputPanel.InputTextPlaceholder')">
+                    :placeholder="t('LR.InputPanel.TextPlaceholder')">
                 </GTextarea>
             </div>
         </div>

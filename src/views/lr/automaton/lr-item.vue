@@ -2,12 +2,12 @@
     <div class="lr-item">
         <span class="lr-item-symbol non-terminal">{{ lrItem.rule.origin.name }}</span>
         <span class="lr-item-arrow">→</span>
-        <span class="lr-item-dot" v-if="lrItem.index === 0">·</span>
+        <span class="lr-item-dot" v-if="lrItem.index === 0">●</span>
         <template v-for="(sym, index) in lrItem.rule.expansion">
             <span
                 :class="['lr-item-symbol', sym.isTerm ? 'terminal' : 'non-terminal']"
             >{{ sym.name }}</span>
-            <span class="lr-item-dot" v-if="(index + 1) === lrItem.index">·</span>
+            <span class="lr-item-dot" v-if="(index + 1) === lrItem.index">●</span>
         </template>
         <template v-if="lrItem.lookahead.size > 0">
             <span class="lr-item-comma">,</span>

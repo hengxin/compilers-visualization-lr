@@ -1,19 +1,29 @@
 <template>
     <header class="header">
-        <span>{{t('ProjectName')}}(LR)</span>
+        <span class="header-title">Visual Compiler (LR)</span>
+        <div class="header-links">
+            <a href="https://github.com/hengxin/compilers-visualization-lr/wiki" target="_blank" class="header-guide">{{ t('Guide') }}</a>
+            <a href="https://github.com/hengxin/compilers-visualization-lr" target="_blank" class="header-github">
+                <i class="bi bi-github"></i>
+            </a>
+        </div>
     </header>
     <main class="content">
         <router-view></router-view>
     </main>
-    <footer class="footer">VISUAL COMPILER</footer>
+    <footer class="footer">
+        <span>Visual Compiler Presented by&nbsp;</span>
+        <a href="https://github.com/supergem3000" target="_blank">supergem3000</a>
+    </footer>
 </template>
 
 <script setup lang="ts">
 import { onErrorCaptured } from "vue";
 import { useI18n } from "vue-i18n";
+import { MessageSchema } from "./i18n";
 import { GNotification } from "@/components/index"
 
-const { t } = useI18n({ useScope: "global" });
+const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
 
 onErrorCaptured((err, instance, info) => {
     GNotification({
@@ -29,14 +39,51 @@ onErrorCaptured((err, instance, info) => {
 <style scoped>
 .header {
     width: 100%;
-    height: 48px;
-    background-color: #001529;
+    height: 36px;
+    background-color: #4a3864;
     padding: 0 32px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header-title {
     color: aliceblue;
-    font-family: "Cascadia Mono", "Courier New", Courier, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", monospace;
+    font-family: "Cascadia Mono", "Courier New", Courier, monospace;
     font-size: 20px;
     font-weight: bold;
 }
+
+.header-links {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.header-links a {
+    display: inline-block;
+    height: 20px;
+}
+
+.header-guide {
+    text-decoration: none;
+    color: aliceblue;
+    font-size: 16px;
+    font-style: italic;
+    font-weight: bold;
+    margin-right: 32px;
+}
+
+.header-guide:hover {
+    color: #e4ebf2;
+}
+
+.header-github {
+    color: white;
+    font-size: 22px;
+}
+
 .content {
     overflow: auto;
     height: calc(100vh - 64px);
@@ -45,9 +92,17 @@ onErrorCaptured((err, instance, info) => {
     position: relative;
 }
 .footer {
-    height: 16px;
-    font-size: 12px;
-    line-height: 12px;
+    height: 28px;
+    background-color: #ededf5;
+    font-weight: bold;
+    color: gray;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.footer a {
+    color: gray;
 }
 </style>
 <style>

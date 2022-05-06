@@ -1,5 +1,6 @@
 {
     "ProjectName": "可视化编译器",
+    "Guide": "使用指南",
     "LR": {
         "LoadingDependecy": "正在加载依赖...",
         "LoadingDependecyNotice": "如果加载时间过长，请检查您的网络是否畅通。",
@@ -9,17 +10,37 @@
             "KeepCharacter": "保留字符",
             "GrammarPlaceholder": "在此输入文法",
             "TextPlaceholder": "在此输入要解析的文本",
-            "ParseButton": "语法分析",
+            "ParseButton": "开始语法分析",
             "WordWrap": "自动换行"
         },
         "Automaton": {
-            "Title": "自动机"
+            "Title": "自动机",
+            "FirstSet": "First集合",
+            "Calculating": "正在计算..."
         },
         "ParseTable": {
             "Title": "语法分析表"
         },
         "ParseTree": {
-            "Title": "语法树"
+            "Title": "语法树",
+            "Action": "动作",
+            "NextToken": "下一个Token",
+            "NextSymbol": "当前文法符号",
+            "StateStack": "状态栈",
+            "SymbolStack": "符号栈"
+        },
+        "ControlPanel": {
+            "CurrentState": "当前状态：",
+            "CalcualteClosure": "计算闭包",
+            "AppendStates": "扩展状态",
+            "Skip": "跳过",
+            "ManualMode": "手动模式",
+            "MergeLR1": "合并LR1项集",
+            "CalculateParseTable": "计算语法分析表",
+            "StartParse": "开始语法分析",
+            "ParseStep": "下一步",
+            "Finish": "语法分析完成！",
+            "Reset": "重置"
         },
         "Error": {
             "InitParserError": "语法分析器初始化失败，请检查你的输入是否正确。"
