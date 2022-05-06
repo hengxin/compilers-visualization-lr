@@ -202,8 +202,8 @@ function startDrag(ev: MouseEvent) {
 
 function drag(ev: MouseEvent) {
     const [distanceX, distanceY] = [ev.pageX - mouseState.clickX, ev.pageY - mouseState.clickY];
-    state.left = (mem.left + distanceX) + "px";
-    state.top = (mem.top + distanceY) + "px";
+    state.left = ((mem.left + distanceX) < 0 ? 0 : (mem.left + distanceX)) + "px";
+    state.top = ((mem.top + distanceY) < 0 ? 0 : (mem.top + distanceY)) + "px";
 }
 
 function resizeAreaTouch(ev: MouseEvent, direction: Direction) {

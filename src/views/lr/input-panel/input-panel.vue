@@ -71,13 +71,8 @@ export default defineComponent({
         const router = useRouter();
         const route = useRoute();
         const lrStore = useLrStore();
-        const grammar = ref(examples.json);
-        const text = ref(`{
-    "aaa": [1,2,3,4,5,6,7,8,9],
-    "bbb": {
-        "fff": null
-    }
-}`);
+        const grammar = ref("");
+        const text = ref("");
         const algos: Array<ParseAlgorithm> = ["LR0", "LR1", "LR1_LALR1"];
         const algorithm = ref<ParseAlgorithm>("LR0");
         const replaceTerminalName = ref(true);

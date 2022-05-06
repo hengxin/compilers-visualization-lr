@@ -37,7 +37,7 @@ export default defineComponent({
         const active = ref(false);
         let timer: number | undefined = undefined;
         function startTimer() {
-            timer = setTimeout(() => { active.value = false; }, props.duration);
+            timer = window.setTimeout(() => { active.value = false; }, props.duration);
         }
         function stopTimer() {
             clearTimeout(timer);
