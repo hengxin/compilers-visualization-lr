@@ -5,9 +5,9 @@
                 <GRadioButtonGroup v-model="algorithm" :options="algos"></GRadioButtonGroup>
                 <div>
                     <GSwitch v-model="replaceTerminalName" 
-                        :active-text="t('LR.InputPanel.AlternateCharacter')"
+                        :active-text="t('LR.InputPanel.NameCharacter')"
                         :inactive-text="t('LR.InputPanel.KeepCharacter')"></GSwitch>
-                    <a href="https://github.com/hengxin/compilers-visualization-lr/wiki" target="_blank">
+                    <a :href="t('GuideURLs.NameCharacter')" target="_blank">
                         <i class="bi bi-question-circle" style="color: gray; font-size: 12px; margin-left: 4px;"></i>
                     </a>
                 </div>

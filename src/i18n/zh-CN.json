@@ -1,15 +1,19 @@
 {
     "ProjectName": "可视化编译器",
     "Guide": "使用指南",
+    "GuideURLs": {
+        "NameCharacter": "https://github.com/hengxin/compilers-visualization-lr/wiki/%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97#%E6%9B%BF%E6%8D%A2%E5%AD%97%E7%AC%A6%E4%B8%8E%E4%BF%9D%E7%95%99%E5%AD%97%E7%AC%A6",
+        "ManualMode": "https://github.com/hengxin/compilers-visualization-lr/wiki/%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97#%E6%89%8B%E5%8A%A8%E6%A8%A1%E5%BC%8F"
+    },
     "LR": {
         "LoadingDependecy": "正在加载依赖...",
         "LoadingDependecyNotice": "如果加载时间过长，请检查您的网络是否畅通。",
         "InputPanel": {
             "Title": "输入面板",
-            "AlternateCharacter": "替换字符",
+            "NameCharacter": "命名字符",
             "KeepCharacter": "保留字符",
-            "GrammarPlaceholder": "在此输入文法",
-            "TextPlaceholder": "在此输入要解析的文本",
+            "GrammarPlaceholder": "在此输入文法，使用start指明起始符号。",
+            "TextPlaceholder": "在此输入要解析的文本。",
             "ParseButton": "开始语法分析",
             "WordWrap": "自动换行"
         },

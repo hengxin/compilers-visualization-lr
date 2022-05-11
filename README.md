@@ -19,3 +19,4 @@ npm run dev
 - [Pyodide](https://pyodide.org/en/stable/)：为浏览器提供Python运行环境以使用Lark。
 - [Vue.js](https://vuejs.org/)及其生态系统：本项目开发的基本框架。
 - [Bootstrap Icons](https://icons.getbootstrap.com/)：使用了部分图标。
+- [KaTeX](https://katex.org/)：使用了KaTex的数学字体。

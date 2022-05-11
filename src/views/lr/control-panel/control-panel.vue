@@ -15,7 +15,7 @@
             <div class="control-panel-group">
                 <span>
                     {{ t('LR.ControlPanel.ManualMode') }}
-                    <a href="https://github.com/hengxin/compilers-visualization-lr/wiki" target="_blank">
+                    <a :href="t('GuideURLs.ManualMode')" target="_blank">
                         <i class="bi bi-question-circle" style="color: gray; font-size: 12px;"></i>
                     </a>
                 </span>
