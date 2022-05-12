@@ -131,10 +131,8 @@ export default defineComponent({
             ruleList.value = [];
             tokenList.value = [];
             started.value = false;
-            lrStore.showControlPanel = false;
-            lrStore.showAutomaton = false;
-            lrStore.showParseTable = false;
-            lrStore.showParseTree = false;
+            lrStore.$reset();
+            lrStore.algorithm = algorithm.value;
         }
 
         const unsubscribe = [EventBus.subscribe("lr", "Reset", handleReset)];
