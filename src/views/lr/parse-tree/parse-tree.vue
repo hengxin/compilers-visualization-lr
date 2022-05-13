@@ -23,6 +23,11 @@
                 </div>
             </template>
         </div>
+        <div class="zoom-panel">
+        <span @click="adjustZoom(10)"><i class="bi bi-zoom-in"></i></span>
+        <span @click="adjustZoom(-10)"><i class="bi bi-zoom-out"></i></span>
+        <span @click="adjustZoom()"><i class="bi bi-arrow-clockwise"></i></span>
+    </div>
     </div>
     <div class="parse-stack-container">
         <div class="parse-stack-title">{{ t('LR.ParseTree.StateStack') }}</div>
@@ -32,7 +37,7 @@
         <ParseStack ref="valueStackRef" mode="html" color1="#68945c" color2="#6fbe2c"></ParseStack>
     </div>
     <div class="parse-tree" ref="parseTreeRef">
-        <svg :width="totalWidth" :height="totalHeight">
+        <svg :width="totalWidth" :height="totalHeight" :style="{ transform: 'scale(' + zoom + '%)', transformOrigin: '0px 0px'}">
             <!-- path放在上面是为了不让路径盖住文字 -->
             <path v-for="treePath in treePathList" :key="treePath.id" :d="treePath.pathStr" class="tree-path"
                 v-show="treePath.visible"></path>
@@ -258,6 +263,17 @@ function handleMouseUp() {
 onMounted(() => {
     parseTreeRef.value!.addEventListener("mousedown", handleMouseDown);
 });
+
+// 放大缩小功能
+const zoom = ref(100);
+function adjustZoom(value?: number) {
+    if (value === undefined) {
+        zoom.value = 100;
+        return;
+    }
+    if (zoom.value <= 20 && value < 0) return;
+    zoom.value += value;
+}
 </script>
 <style scoped>
 .parse-message-container {
@@ -270,6 +286,7 @@ onMounted(() => {
     border: 2px solid rgb(33, 166, 117);
     border-radius: 4px;
     background-color: rgba(33, 166, 117, 0.2);
+    z-index: 1;
 }
 
 .parse-operations {
@@ -288,6 +305,19 @@ onMounted(() => {
     padding: 0 4px
 }
 
+.zoom-panel {
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 0;
+    font-size: 16px;
+    width: fit-content;
+}
+
+.zoom-panel * {
+    margin-right: 4px;
+    cursor: pointer;
+}
+
 .parse-stack-container {
     height: calc(100% - 80px);
     position: absolute;
@@ -298,6 +328,7 @@ onMounted(() => {
     display: flex;
     flex-direction: row;
     align-items: flex-end;
+    z-index: 1;
 }
 
 .parse-stack-title {

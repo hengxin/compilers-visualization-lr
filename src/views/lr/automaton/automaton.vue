@@ -1,7 +1,8 @@
 <template>
     <div class="automaton-display-panel" ref="displayPanel">
         <div
-            :style="{ position: 'relative', height: totalHeight + 'px', width: totalWidth + 'px' }"
+            :style="{ position: 'relative', height: totalHeight + 'px', width: totalWidth + 'px',
+            transform: 'scale(' + zoom + '%)', transformOrigin: '0px 0px' }"
         >
             <div
                 v-for="item in stateItems"
@@ -65,6 +66,11 @@
                 </div>
             </template>
         </div>
+    </div>
+    <div class="zoom-panel">
+        <span @click="adjustZoom(10)"><i class="bi bi-zoom-in"></i></span>
+        <span @click="adjustZoom(-10)"><i class="bi bi-zoom-out"></i></span>
+        <span @click="adjustZoom()"><i class="bi bi-arrow-clockwise"></i></span>
     </div>
     <GLoading v-if="automatonLoading" :text="t('LR.Automaton.Calculating')"></GLoading>
 </template>
@@ -640,6 +646,17 @@ export default defineComponent({
             initFirstSet();
         }
 
+        // 放大缩小功能
+        const zoom = ref(100);
+        function adjustZoom(value?: number) {
+            if (value === undefined) {
+                zoom.value = 100;
+                return;
+            }
+            if (zoom.value <= 20 && value < 0) return;
+            zoom.value += value;
+        }
+
         return {
             t,
             automatonLoading,
@@ -653,6 +670,7 @@ export default defineComponent({
             showFirstSetTable,
             changeShowFirstSetTable,
             firstSetWithNullable,
+            zoom, adjustZoom
         };
     }
 });
@@ -778,6 +796,18 @@ svg {
 
 .first-set-symbol:last-child {
     margin-right: 0;
+}
+
+.zoom-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 16px;
+}
+
+.zoom-panel * {
+    margin-right: 4px;
+    cursor: pointer;
 }
 
 .automaton-loading-mask {
