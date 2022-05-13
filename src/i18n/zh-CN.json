@@ -15,7 +15,8 @@
             "GrammarPlaceholder": "在此输入文法，使用start指明起始符号。",
             "TextPlaceholder": "在此输入要解析的文本。",
             "ParseButton": "开始语法分析",
-            "WordWrap": "自动换行"
+            "WordWrap": "自动换行",
+            "TokenContent": "词法单元内容"
         },
         "Automaton": {
             "Title": "自动机",

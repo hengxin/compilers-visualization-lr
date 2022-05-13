@@ -398,7 +398,7 @@ class Automaton {
     constructor(type: ParseAlgorithm) {
         this.type = type;
         let startState = new LRItemSet(
-            [new LRItem(PARSER_STORE.startRule, 0,
+            [new LRItem(PARSER_STORE.startRule!, 0,
                 this.type === "LR0" || this.type === "LR0_LALR1" ? undefined : SYMBOL_END)], 0);
         this.states.push(startState);
     }
@@ -716,7 +716,7 @@ class Goto extends Action {
 }
 class Accept extends Action {
     constructor() {
-        super("Accept", "acc", -1, PARSER_STORE.startRule);
+        super("Accept", "acc", -1, PARSER_STORE.startRule!);
     }
 }
 type ParseTableInner = Map<number, Map<_Symbol, Array<Action>>>;
@@ -806,11 +806,10 @@ class ParseTable {
                 }
                 // 注意从大到小排序。无法比较优先级则返回相等
                 if (a.rule.priority === b.rule.priority) {
-                    if (a.rule.origin !== b.rule.origin) {
-                        return 0;
-                    }
-                    if (b.rule.order !== a.rule.order) {
-                        return b.rule.order - a.rule.order;
+                    if (a.rule.origin === b.rule.origin) {
+                        if (b.rule.order !== a.rule.order) {
+                            return b.rule.order - a.rule.order;
+                        }
                     }
                     if (a instanceof Shift) {
                         return -1;
@@ -898,7 +897,7 @@ class ParseTable {
 
 const PARSER_STORE = {
     rules: [] as Rule[],
-    startRule: undefined as unknown as Rule,
+    startRule: undefined as Rule | undefined,
     ruleIndexMap: new Map<Rule, number>(),
     /**
      * 本程序中token和symbol的区别：
@@ -916,6 +915,17 @@ const PARSER_STORE = {
     nullable: new Set<NonTerminal>(),
     stateStack: [] as number[],
     valueStack: [] as Tree[],
+    reset: function() {
+        this.rules = [];
+        this.startRule = undefined;
+        this.ruleIndexMap = new Map();
+        this.symbolMap = new Map();
+        this.tokens = [];
+        this.firstSet = new Map();
+        this.nullable = new Set();
+        this.stateStack = [];
+        this.valueStack = [];
+    }
 }
 
 
@@ -977,6 +987,7 @@ class InteractiveLrParser {
     store = PARSER_STORE;
 
     constructor(algo: ParseAlgorithm, rules: Array<Rule>, tokens: Array<Token>, replaceTerminalName: boolean) {
+        PARSER_STORE.reset();
         this.algo = algo;
 
         // 1. 是否需要替换标点等特殊字符

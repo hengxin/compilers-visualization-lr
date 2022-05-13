@@ -9,7 +9,7 @@
                     { backgroundColor: inactiveColor[0], color: inactiveColor[1], borderColor: inactiveColor[1] }"
             >
                 <span :class="tag.token.symbol.isTerm ? 'terminal' : 'non-terminal'">{{ tag.token.symbol.name }}</span>
-                <template v-if="tag.token.symbol.name !== tag.token.value">
+                <template v-if="tokenContent && (tag.token.symbol.name !== tag.token.value)">
                     <span>(</span>
                     <span class="non-terminal">{{ tag.token.value }}</span>
                     <span>)</span>
@@ -26,6 +26,7 @@ const props = {
     tokenLine: { type: Array as PropType<Array<Token>>, required: true, default: [] },
     lineNo: { type: Number, required: true },
     wrap: { type: Boolean, default: false },
+    tokenContent: { type: Boolean, default: true },
 }
 export default defineComponent({
     props,
@@ -76,6 +77,7 @@ export default defineComponent({
     border-radius: 4px;
     border-width: 1px;
     border-style: solid;
+    white-space: nowrap;
 }
 /* .token-tag-sm {
     font-style: italic;

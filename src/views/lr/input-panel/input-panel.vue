@@ -31,13 +31,15 @@
                 <RuleLine class="rule-line" v-for="(rule, index) in ruleList" :rule="rule" :index="index"></RuleLine>
             </div>
             <div class="token-panel panel-item">
-                <div class="token-line-wrap-check">
+                <div class="token-line-check">
                     <input type="checkbox" v-model="tokenLineWrap">
                     <label>{{t('LR.InputPanel.WordWrap')}}</label>
+                    <input type="checkbox" v-model="showTokenContent">
+                    <label>{{t('LR.InputPanel.TokenContent')}}</label>
                 </div>
                 <div class="token-line-container" :class="[tokenLineWrap ? 'token-line-container-wrap' : '']">
                     <TokenLine class="token-line" v-for="(tokenLine, key) in tokenLineList" :token-line="tokenLine"
-                        :lineNo="key + 1" :wrap="tokenLineWrap"></TokenLine>
+                        :lineNo="key + 1" :wrap="tokenLineWrap" :token-content="showTokenContent"></TokenLine>
                 </div>
             </div>
         </div>
@@ -124,12 +126,14 @@ export default defineComponent({
         function changeTokenLineWrap() {
             tokenLineWrap.value = !tokenLineWrap.value;
         }
+        const showTokenContent = ref(true);
 
         function handleReset() {
             grammar.value = "";
             text.value = "";
             ruleList.value = [];
             tokenList.value = [];
+            tokenLineList.value = [];
             started.value = false;
             lrStore.$reset();
             lrStore.algorithm = algorithm.value;
@@ -142,7 +146,7 @@ export default defineComponent({
             t, parse,
             replaceTerminalName,
             grammar, text, algos, algorithm, ruleList, tokenLineList, started,
-            tokenLineWrap, changeTokenLineWrap,
+            tokenLineWrap, changeTokenLineWrap, showTokenContent,
         };
     }
 });
@@ -190,7 +194,7 @@ export default defineComponent({
     overflow: auto;
 }
 
-.token-line-wrap-check {
+.token-line-check {
     display: flex;
     align-items: center;
 }
