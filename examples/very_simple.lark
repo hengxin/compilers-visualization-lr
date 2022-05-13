@@ -1,5 +1,0 @@
-start: s
-
-s: c c
-c: "c" c
- | "d"

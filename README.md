@@ -1,12 +1,21 @@
 # 编译器可视化（LR算法）
 使用前请先阅读[使用指南](https://github.com/hengxin/compilers-visualization-lr/wiki)
 
-## 本地运行
+## 本地编译运行
 
 ```
 npm install
-npm run dev
+npm run build
+npm run preview
 ```
+
+访问`npm run preview`运行后给出的URL。
+
+## 在线访问
+
+[https://vc.gem-universe.net/](https://vc.gem-universe.net/)
+
+**不保证随时可用！！！**
 
 ## 已知Bug
 

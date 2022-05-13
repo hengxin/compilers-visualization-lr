@@ -1,12 +1,12 @@
-?start: value
+start: value
 
-?value: object
+value: object
       | array
       | string
-      | SIGNED_NUMBER      -> number
-      | "true"             -> true
-      | "false"            -> false
-      | "null"             -> null
+      | SIGNED_NUMBER
+      | "true"
+      | "false"
+      | "null"
 
 array  : "[" [value ("," value)*] "]"
 object : "{" [pair ("," pair)*] "}"
