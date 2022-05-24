@@ -3,13 +3,48 @@
 
 ## 本地编译运行
 
-```
-npm install
-npm run build
-npm run preview
-```
+1. 处理CDN依赖
 
-访问`npm run preview`运行后给出的URL。
+   - 如果你的网络环境较好，可以流畅访问jsDelivr CDN，那你什么也不用做。
+
+   - 如果你访问jsDelivr存在困难，则将`src/utils/pyodide.ts`文件中29-30行的内容改为31-32行注释的内容，即：
+
+     ```typescript
+     await loadScript("https://cdn.jsdelivr.net/pyodide/v0.20.0/full/pyodide.js");
+     pyodide = await window.loadPyodide() as PyodideInterface;
+     // 修改为
+     await loadScript("/pyodide/pyodide.js");
+     pyodide = await window.loadPyodide({ indexURL: "/pyodide" }) as PyodideInterface;
+     ```
+
+     然后访问[Pyodide Github Releases](https://github.com/pyodide/pyodide/releases)，选择合适版本的`pyodide-build-*.tar.bz2`（本项目开发时使用的是v0.20.0版本），解压后将下列文件复制到`/public/pyodide`文件夹。
+
+     ```
+     distutils.tar
+     micropip-*.whl
+     packages.json
+     packaging-*.whl
+     pyodide_py.tar
+     pyodide.asm.data
+     pyodide.asm.js
+     pyodide.asm.wasm
+     pyodide.js
+     pyparsing-*.whl
+     ```
+
+     > 本项目依赖的Pyodide文档提供了从CDN引入的方式和NPM Package两种方式。NPM Package为实验性的，可能存在问题，因此从CDN引入。
+     >
+     > 此步骤实际上是将从CDN加载的文件手动下载到本地。鉴于部分网络环境访问jsDelivr存在困难，为此提供了一种简单粗暴解决方案。
+
+2. 安装依赖、构建、预览
+
+   ```
+   npm install
+   npm run build
+   npm run preview
+   ```
+
+   访问`npm run preview`运行后给出的URL。
 
 ## 在线访问
 

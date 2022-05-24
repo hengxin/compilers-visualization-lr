@@ -8,26 +8,28 @@ interface PyProxy {
     length: number;
 }
 
-interface Pyodide {
+interface PyodideInterface {
     loadPackage(names: string | string[] | PyProxy,
-        messageCallback?: (...args: any[]) => any,
-        errorCallback?: (...args: any[]) => any): Promise<any>;
-    runPython(code: string, globals?: PyProxy): any;
-    runPythonAsync(code: string, globals?: PyProxy): Promise<any>;
+        messageCallback?: (msg: string) => void,
+        errorCallback?: (msg: string) => void): Promise<void>;
+    runPython(code: string, options?: { globals?: PyProxy; }): any;
+    runPythonAsync(code: string, options?: { globals?: PyProxy; }): Promise<any>;
     globals: PyProxy;
 }
 
 declare global {
     interface Window {
-        loadPyodide(config?: { indexURL: string }): Promise<Pyodide>;
+        loadPyodide(config?: { indexURL: string }): Promise<PyodideInterface>;
     }
 }
 
-let pyodide: Pyodide | undefined = undefined;
+let pyodide: PyodideInterface | undefined = undefined;
 
-async function LoadPyodide(this: any, callback: (s: string) => void): Promise<Pyodide | undefined> {
+async function LoadPyodide(this: any, callback: (s: string) => void): Promise<PyodideInterface | undefined> {
     await loadScript("https://cdn.jsdelivr.net/pyodide/v0.20.0/full/pyodide.js");
-    pyodide = await window.loadPyodide() as Pyodide;
+    pyodide = await window.loadPyodide() as PyodideInterface;
+    // await loadScript("/pyodide/pyodide.js");
+    // pyodide = await window.loadPyodide({ indexURL: "/pyodide" }) as PyodideInterface;
     callback?.call(this, "Pyodide loaded. Installing micropip...");
     await pyodide.loadPackage("micropip");
     await pyodide.runPythonAsync("import micropip");
@@ -35,14 +37,14 @@ async function LoadPyodide(this: any, callback: (s: string) => void): Promise<Py
     return pyodide;
 }
 
-function GetPyodide(): Pyodide {
+function GetPyodide(): PyodideInterface {
     if (pyodide === undefined) {
         throw new CommonError("PyodideNotLoaded");
     }
     return pyodide;
 }
 
-export { 
-    type Pyodide, type PyProxy,
+export {
+    type PyodideInterface, type PyProxy,
     LoadPyodide, GetPyodide
 };
