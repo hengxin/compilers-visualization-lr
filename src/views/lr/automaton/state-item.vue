@@ -74,16 +74,7 @@ export default defineComponent({
         props.state.kernel.forEach((item) => {
             kernel.value.push(item);
         });
-        function handleClosureStep(items: Array<LRItem>, update: boolean = true) {
-            currentItem.value++;
-            // TODO?
-            items.forEach((item) => {
-                closureExceptKernel.value.push(item);
-            });
-            if (items.length !== 0 && update) {
-                ctx.emit("updateState", props.state.id);
-            }
-        }
+
         const updateClosureKey = ref(0); // 仅用来强制刷新组件
         function handleMergeLookaheads(state: LRItemSet) {
             // calculating.value = false;
@@ -110,7 +101,6 @@ export default defineComponent({
             ctx.emit("updateState", props.state.id, false);
         }
         const unsubscribe = [
-            EventBus.subscribe("lr", "State" + props.state.id + "ClosureStep", handleClosureStep),
             EventBus.subscribe("lr", "State" + props.state.id + "MergeLookaheads", handleMergeLookaheads),
             EventBus.subscribe("lr", "State" + props.state.id + "Closure", handleClosure),
             EventBus.subscribe("lr", "State" + props.state.id + "MergeLr1", handleMergeLr1),

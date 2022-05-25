@@ -73,6 +73,7 @@
         <span @click="adjustZoom()"><i class="bi bi-arrow-clockwise"></i></span>
     </div>
     <GLoading v-if="automatonLoading" :text="t('LR.Automaton.Calculating')"></GLoading>
+    <ClosureModal></ClosureModal>
 </template>
 
 <script lang="ts">
@@ -85,6 +86,7 @@ import { GetParser, LRItemSet, AppendStateResult, _Symbol, MergeLr1StatesResult,
 import EventBus from "@/utils/eventbus";
 import { StateItemData, LineBlockType, LineBlockData, ColumnData } from "./automaton";
 import StateItem from "./state-item.vue";
+import ClosureModal from "./closure-modal.vue";
 
 const GAP_OUT = 16;
 const GAP_IN = 8;
@@ -120,6 +122,7 @@ function generateLineBlockData(symbol: _Symbol, from: number, to: number, type: 
 }
 export default defineComponent({
     components: {
+        ClosureModal,
         StateItem,
         GLoading,
     },

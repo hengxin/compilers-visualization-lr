@@ -6,3 +6,4 @@ export { notify as GNotification} from "./notification";
 export { default as GSwitch } from "./Switch.vue";
 export { default as GWindow } from "./Window.vue";
 export { default as GLoading } from "./Loading.vue";
+export { default as GModal } from "./Modal.vue";

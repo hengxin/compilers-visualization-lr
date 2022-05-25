@@ -9,6 +9,7 @@
                     <span class="non-terminal">I</span><sub class="non-terminal">{{ currentStateId }}</sub>
                 </div>
                 <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure()">{{ t('LR.ControlPanel.CalcualteClosure') }}</GButton>
+                <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure(true)">step</GButton>
                 <GButton v-show="showAppendStatesButton" type="success" @click="AppendStates()">{{ t('LR.ControlPanel.AppendStates') }}</GButton>
                 <GButton v-show="!manual" type="info" @click="skipAutomaton()">{{ t('LR.ControlPanel.Skip') }}</GButton>
             </div>
@@ -85,13 +86,16 @@ const showAppendStatesButton = computed(() => {
 // const showMergeLr1StatesButton = computed(() => algorithm.value === "LR1_LALR1" && (manual.value || automatonStatus.value === AutomatonStatus.Merge));
 const showCalcParseTableButton = computed(() => !manual.value && automatonStatus.value === AutomatonStatus.Done);
 
-async function CalcClosure() {
-    const state = parser.automaton.CalcStateClosure(currentStateId.value, algorithm.value);
+async function CalcClosure(step: boolean = false) {
+    const res = parser.automaton.CalcStateClosure(currentStateId.value, algorithm.value);
     if (algorithm.value === "LR1" || algorithm.value === "LR1_LALR1") {
         parser.automaton.MergeLookaheads(currentStateId.value);
     }
     lrStore.stateFlags[currentStateId.value].closureDone = true;
-    await EventBus.publish("lr", "State" + currentStateId.value + "Closure", state);
+    if (step) {
+        EventBus.publish("lr", "ClosureStep", res);
+    }
+    await EventBus.publish("lr", "State" + currentStateId.value + "Closure", res.state);
 }
 
 async function AppendStates() {
@@ -217,7 +221,7 @@ function reset() {
     border-radius: 4px;
     padding: 8px;
     background-color: #d3ede3;
-    z-index: 99999;
+    z-index: 9999;
 }
 
 .control-panel-group {

@@ -133,6 +133,7 @@ class LRItem {
 }
 
 type ClosureAlgorithm = "LR0" | "LR1";
+type ClosureStep = { item: LRItem, existed: boolean };
 /**
  * 项集
  * 是若干项构成的集合。句柄识别自动机的一个状态可以表示为一个项集。
@@ -222,13 +223,13 @@ class LRItemSet {
         return false;
     }
 
-    calcClosure(algo: ClosureAlgorithm): Array<Array<LRItem>> {
+    calcClosure(algo: ClosureAlgorithm): Array<Array<ClosureStep>> {
         if (this.closureDone) {
             throw new ParserInfo(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_HAVE_CALCULATED);
         }
-        let steps: Array<Array<LRItem>> = [];
+        let steps: Array<Array<ClosureStep>> = [];
         while (!this.closureDone) {
-            let stepRes: Array<LRItem> = [];
+            let stepRes: Array<ClosureStep> = [];
             // 遍历闭包中的每一项[A -> a·Bb]
             let item = this.closure[this.searchIndex];
             const rightSym = item.current();
@@ -247,8 +248,11 @@ class LRItemSet {
                         let newPtr = new LRItem(rule, 0);
                         // 如果[B -> ·r]不在闭包中，则将[B -> ·r]加入到闭包
                         if (!this.have(newPtr)) {
-                            stepRes.push(newPtr);
+                            stepRes.push({ item: newPtr, existed: false });
                             this.closure.push(newPtr);
+                        } else {
+                            // 表示[B -> ·r]已经在闭包内
+                            stepRes.push({ item: newPtr, existed: true });
                         }
                     } else if (algo === "LR1") {
                         let nextSyms: _Symbol[] = item.rule.expansion.slice(item.index + 1);
@@ -259,8 +263,10 @@ class LRItemSet {
                             terms.forEach((term) => {
                                 let newPtr = new LRItem(rule, 0, term);
                                 if (!this.have(newPtr)) {
-                                    stepRes.push(newPtr);
+                                    stepRes.push({ item: newPtr, existed: false });
                                     this.closure.push(newPtr);
+                                } else {
+                                    stepRes.push({ item: newPtr, existed: true });
                                 }
                             });
                         });
@@ -367,7 +373,7 @@ class LRItemSet {
 type AutomatonState = LRItemSet;
 type ParseAlgorithm = "LR0" | "LR1" | "LR1_LALR1" | "LR0_LALR1";
 
-interface StateClosureResult { id: number, closureSteps: Array<Array<LRItem>> }
+interface StateClosureResult { state: LRItemSet, steps: Array<Array<ClosureStep>> }
 interface AppendStateResult { from: number, targets: Array<{ symbol: _Symbol, state: LRItemSet }> }
 interface MergeLr1StatesResult {
     mergeMap: Map<number, number>,
@@ -414,16 +420,17 @@ class Automaton {
         return s;
     }
 
-    CalcStateClosure(stateId: number, algo: ParseAlgorithm) {
+    CalcStateClosure(stateId: number, algo: ParseAlgorithm): StateClosureResult {
         if (this.states[stateId] === undefined) {
             throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_NOT_FOUND);
         }
+        let steps: Array<Array<ClosureStep>>;
         if (algo === "LR0" || algo === "LR0_LALR1") {
-            this.states[stateId].calcClosure("LR0");
+            steps = this.states[stateId].calcClosure("LR0");
         } else {
-            this.states[stateId].calcClosure("LR1");
+            steps = this.states[stateId].calcClosure("LR1");
         }
-        return this.states[stateId];
+        return { state: this.states[stateId], steps };
     }
 
     AppendStates(stateId: number): AppendStateResult {
@@ -915,7 +922,7 @@ const PARSER_STORE = {
     nullable: new Set<NonTerminal>(),
     stateStack: [] as number[],
     valueStack: [] as Tree[],
-    reset: function() {
+    reset: function () {
         this.rules = [];
         this.startRule = undefined;
         this.ruleIndexMap = new Map();
@@ -1173,7 +1180,9 @@ class InteractiveLrParser {
 export {
     InteractiveLrParser, LRItem, LRItemSet,
     Action, Shift, Reduce, Goto, Accept,
+    type ClosureStep,
     type ParseAlgorithm, type AppendStateResult,
+    type StateClosureResult,
     type MergeLr1StatesResult,
     type ParseStepResult,
     ParseTable,
