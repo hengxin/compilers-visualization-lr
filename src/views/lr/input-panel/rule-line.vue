@@ -28,7 +28,6 @@ export default defineComponent({
 .rule-line {
     display: flex;
     flex-direction: row;
-    font-size: 12px;
 }
 .rule-index {
     color: var(--color-klein-blue);

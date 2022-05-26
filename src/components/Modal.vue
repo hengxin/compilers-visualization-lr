@@ -1,7 +1,8 @@
 <template>
     <div class="__g-modal-mask" v-show="visible"></div>
     <div class="__g-modal-wrap" v-show="visible">
-        <div class="__g-modal">
+        <div class="__g-modal"
+            :style="{ width: width }">
             <div class="__g-modal-header">
                 <button type="button"
                     class="__g-modal-close"
@@ -26,6 +27,7 @@ export default defineComponent({
     props: {
         title: { type: String },
         visible: { type: Boolean, default: false },
+        width: { type: String },
     },
     emits: ["update:visible", "close"],
     setup(props, ctx) {

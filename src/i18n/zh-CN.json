@@ -45,6 +45,7 @@
         "ControlPanel": {
             "CurrentState": "当前状态：",
             "CalcualteClosure": "计算闭包",
+            "StepClosure": "单步计算",
             "AppendStates": "扩展状态",
             "Skip": "跳过",
             "ManualMode": "手动模式",

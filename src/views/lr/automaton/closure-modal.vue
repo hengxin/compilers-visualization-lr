@@ -1,22 +1,28 @@
 <template>
-    <GModal v-model:visible="showClosureModal" @close="reset()">
-        <div v-if="algorithm !== 'LR0'" class="first-set-panel">
-            <div class="panel-title">{{ t('LR.ClosureModal.FirstSet') }}</div>
-            <FirstSetTable :first-set="firstSet" style="max-width: 100%;"></FirstSetTable>
-        </div>
-        <div v-if="firstResults[idx]">
-            <div v-for="f in firstResults[idx]">
-                <span>First(</span>
-                <span v-for="s in f.symbolString"
-                    :class="['first-result-item', s.isTerm ? 'terminal' : 'non-terminal']">{{ s.name }}</span>
-                <span>) = {</span>
-                <span v-for="s in f.firstSet" class="terminal first-result-item">{{ s.name }}</span>
-                <span>}</span>
+    <GModal v-model:visible="showClosureModal" @close="reset()"
+        width="calc(100% - 256px)">
+        <div class="info-container">
+            <div v-if="algorithm !== 'LR0'">
+                <div class="first-set-panel">
+                    <div class="panel-title">{{ t('LR.ClosureModal.FirstSet') }}</div>
+                    <FirstSetTable :first-set="firstSet" style="max-width: 100%;"></FirstSetTable>
+                </div>
+                <div v-if="firstResults[idx]">
+                    <div v-for="f in firstResults[idx]" style="white-space: nowrap">
+                        <span>First(</span>
+                        <span v-for="s in f.symbolString"
+                            :class="['first-result-item', s.isTerm ? 'terminal' : 'non-terminal']">{{ s.name }}</span>
+                        <span>) = {</span>
+                        <span v-for="s in f.firstSet" class="terminal first-result-item">{{ s.name }}</span>
+                        <span>}</span>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="rule-list">
-            <div class="panel-title">{{ t('LR.ClosureModal.Rule') }}</div>
-            <RuleLine v-for="(item, index) in ruleList" :rule="item.rule" :index="index"></RuleLine>
+            <div class="rule-list">
+                <div class="panel-title">{{ t('LR.ClosureModal.Rule') }}</div>
+                <RuleLine v-for="(item, index) in ruleList" :rule="item.rule" :index="index"
+                    style="margin-bottom: 4px;"></RuleLine>
+            </div>
         </div>
         <div class="item-list">
             <div class="panel-title">{{ t('LR.ClosureModal.Closure') }}</div>
@@ -34,9 +40,9 @@
             </div>
         </div>
         <template #header>
-            <GButton @click="closureStep()">{{
-                stepState === StepState.Calculate ? t("LR.ClosureModal.Calculate") :
-                 (stepState === StepState.Next ? t("LR.ClosureModal.Next") : t("LR.ClosureModal.Done"))
+            <GButton @click="closureStep()" type="success">{{
+                    stepState === StepState.Calculate ? t("LR.ClosureModal.Calculate") :
+                        (stepState === StepState.Next ? t("LR.ClosureModal.Next") : t("LR.ClosureModal.Done"))
             }}</GButton>
         </template>
     </GModal>
@@ -78,8 +84,8 @@ export default defineComponent({
         const closure = ref<Array<{ item: LRItem, highlight: boolean }>>([]);
         // 这里声明closureRaw，是因为calculateStep中equalIncludes比较rule用的等号，
         // 而从closure.value获得的item是Proxy，equalIncludes总为false。
-        const closureRaw: Array<LRItem> = [];
-        const firstResults: Array<Array<FirstResult> | undefined> = [];
+        let closureRaw: Array<LRItem> = [];
+        const firstResults = ref<Array<Array<FirstResult> | undefined>>([]);
 
         let steps: ClosureSteps = [];
         const idx = ref(-1);
@@ -91,7 +97,7 @@ export default defineComponent({
                 return { item, highlight: false };
             });
             steps = res.steps;
-            steps.forEach(step => firstResults.push(step.first))
+            steps.forEach(step => firstResults.value.push(step.first))
             nextStep();
         }
         const unsubscribe = [
@@ -136,12 +142,17 @@ export default defineComponent({
                 stepState.value = StepState.Done;
             } else {
                 stepState.value = StepState.Calculate;
+                if (steps[idx.value].step.length === 0) {
+                    stepState.value = StepState.Next;
+                }
             }
         }
 
         function reset() {
-            idx.value = 0;
+            idx.value = -1;
             closure.value = [];
+            closureRaw = [];
+            firstResults.value = [];
             steps = [];
             showClosureModal.value = false;
             stepState.value = StepState.Calculate;
@@ -164,6 +175,23 @@ export default defineComponent({
 });
 </script>
 <style scoped>
+* {
+    font-size: 16px;
+}
+
+.info-container {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 16px;
+    justify-content: space-between;
+}
+
+.info-container > div {
+    width: calc(50% - 24px);
+    flex-shrink: 0;
+    overflow-x: auto;
+}
+
 .first-set-panel {
     width: fit-content;
     max-width: 100%;
@@ -176,18 +204,6 @@ export default defineComponent({
 
 .first-result-item {
     margin: 0 2px;
-}
-
-.rule-list,
-.item-list {
-    display: inline-block;
-    min-width: 200px;
-    /* max-width: ; */
-    vertical-align: top;
-}
-
-.rule-list {
-    margin-right: 16px;
 }
 
 .lr-item {

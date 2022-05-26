@@ -8,8 +8,8 @@
                     {{ t('LR.ControlPanel.CurrentState') }}
                     <span class="non-terminal">I</span><sub class="non-terminal">{{ currentStateId }}</sub>
                 </div>
+                <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure(true)">{{ t('LR.ControlPanel.StepClosure') }}</GButton>
                 <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure()">{{ t('LR.ControlPanel.CalcualteClosure') }}</GButton>
-                <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure(true)">step</GButton>
                 <GButton v-show="showAppendStatesButton" type="success" @click="AppendStates()">{{ t('LR.ControlPanel.AppendStates') }}</GButton>
                 <GButton v-show="!manual" type="info" @click="skipAutomaton()">{{ t('LR.ControlPanel.Skip') }}</GButton>
             </div>
