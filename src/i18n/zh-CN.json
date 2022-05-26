@@ -23,6 +23,14 @@
             "FirstSet": "First集合",
             "Calculating": "正在计算..."
         },
+        "ClosureModal": {
+            "FirstSet": "First集合",
+            "Rule": "产生式",
+            "Closure": "闭包",
+            "Next": "下一项",
+            "Calculate": "计算",
+            "Done": "完成"
+        },
         "ParseTable": {
             "Title": "语法分析表"
         },

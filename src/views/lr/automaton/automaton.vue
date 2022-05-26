@@ -58,14 +58,10 @@
             <span>{{ t('LR.Automaton.FirstSet') }}</span>
             <span class="first-set-table-btn" @click="changeShowFirstSetTable">{{showFirstSetTable ? "&gt;" : "&lt;"}}</span>
         </div>
-        <div class="first-set-table" v-show="showFirstSetTable">
-            <template v-for="firstSetPair in firstSetWithNullable">
-                <div class="first-set-row-l non-terminal">{{ firstSetPair[0].name }}</div>
-                <div class="first-set-row-r terminal">
-                    <span class="first-set-symbol" v-for="sym in firstSetPair[1]">{{ sym.name }}</span>
-                </div>
-            </template>
-        </div>
+        <FirstSetTable
+            v-show="showFirstSetTable"
+            :first-set="firstSetWithNullable"
+            style="max-width: 300px; max-height: 200px;"></FirstSetTable>
     </div>
     <div class="zoom-panel">
         <span @click="adjustZoom(10)"><i class="bi bi-zoom-in"></i></span>
@@ -73,7 +69,7 @@
         <span @click="adjustZoom()"><i class="bi bi-arrow-clockwise"></i></span>
     </div>
     <GLoading v-if="automatonLoading" :text="t('LR.Automaton.Calculating')"></GLoading>
-    <ClosureModal></ClosureModal>
+    <ClosureModal :first-set="firstSetWithNullable"></ClosureModal>
 </template>
 
 <script lang="ts">
@@ -87,6 +83,7 @@ import EventBus from "@/utils/eventbus";
 import { StateItemData, LineBlockType, LineBlockData, ColumnData } from "./automaton";
 import StateItem from "./state-item.vue";
 import ClosureModal from "./closure-modal.vue";
+import FirstSetTable from "./first-set-table.vue";
 
 const GAP_OUT = 16;
 const GAP_IN = 8;
@@ -123,6 +120,7 @@ function generateLineBlockData(symbol: _Symbol, from: number, to: number, type: 
 export default defineComponent({
     components: {
         ClosureModal,
+        FirstSetTable,
         StateItem,
         GLoading,
     },
@@ -765,40 +763,6 @@ svg {
     cursor: pointer;
     margin-left: 4px;
     color: red;
-}
-
-/* 固定第一列表头的样式写的很不优雅，但水平有限凑合用吧 */
-.first-set-table {
-    display: grid;
-    grid-template-columns: auto auto;
-    max-width: 300px;
-    max-height: 200px;
-    overflow: auto;
-    border: 1px solid darkgray;
-    border-bottom: none;
-}
-
-.first-set-row-l {
-    position: sticky;
-    left: 0;
-    border-right: 1px solid darkgray;
-    border-bottom: 1px solid darkgray;
-    padding: 4px;
-    background-color: aliceblue;
-}
-
-.first-set-row-r {
-    border-bottom: 1px solid darkgray;
-    padding: 4px;
-}
-
-.first-set-symbol {
-    border: 1px solid darkgray;
-    margin-left: 4px;
-}
-
-.first-set-symbol:last-child {
-    margin-right: 0;
 }
 
 .zoom-panel {

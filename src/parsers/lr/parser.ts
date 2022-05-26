@@ -130,10 +130,20 @@ class LRItem {
     clearLookahead() {
         this.lookahead.clear();
     }
+
+    clone(): LRItem {
+        return new LRItem(this.rule, this.index, this.lookahead);
+    }
 }
 
 type ClosureAlgorithm = "LR0" | "LR1";
-type ClosureStep = { item: LRItem, existed: boolean };
+type FirstResult = { symbolString: Array<_Symbol>, firstSet: Array<Terminal> }
+type ClosureStepItem = { item: LRItem, existed: boolean };
+type ClosureStep = {
+    first?: Array<FirstResult>,
+    step: Array<ClosureStepItem>,
+}
+type ClosureSteps = Array<ClosureStep>
 /**
  * 项集
  * 是若干项构成的集合。句柄识别自动机的一个状态可以表示为一个项集。
@@ -223,13 +233,13 @@ class LRItemSet {
         return false;
     }
 
-    calcClosure(algo: ClosureAlgorithm): Array<Array<ClosureStep>> {
+    calcClosure(algo: ClosureAlgorithm): ClosureSteps {
         if (this.closureDone) {
             throw new ParserInfo(PARSER_EXCEPTION_MSG.LR_ITEM_SET_CLOSURE_HAVE_CALCULATED);
         }
-        let steps: Array<Array<ClosureStep>> = [];
+        let closureSteps: ClosureSteps = [];
         while (!this.closureDone) {
-            let stepRes: Array<ClosureStep> = [];
+            let stepRes: ClosureStep = { step: [] };
             // 遍历闭包中的每一项[A -> a·Bb]
             let item = this.closure[this.searchIndex];
             const rightSym = item.current();
@@ -248,25 +258,29 @@ class LRItemSet {
                         let newPtr = new LRItem(rule, 0);
                         // 如果[B -> ·r]不在闭包中，则将[B -> ·r]加入到闭包
                         if (!this.have(newPtr)) {
-                            stepRes.push({ item: newPtr, existed: false });
+                            stepRes.step.push({ item: newPtr, existed: false });
                             this.closure.push(newPtr);
                         } else {
                             // 表示[B -> ·r]已经在闭包内
-                            stepRes.push({ item: newPtr, existed: true });
+                            stepRes.step.push({ item: newPtr, existed: true });
                         }
                     } else if (algo === "LR1") {
                         let nextSyms: _Symbol[] = item.rule.expansion.slice(item.index + 1);
+                        stepRes.first = [];
                         item.lookahead.forEach((la) => {
                             // 求FIRST(βa)
-                            let terms = first([...nextSyms, la]);
+                            const symbolString = [...nextSyms, la]
+                            let terms = first(symbolString);
                             // 遍历FIRST(βa)中的每个终结符号b，将[B -> ·γ, b]加入到闭包
                             terms.forEach((term) => {
                                 let newPtr = new LRItem(rule, 0, term);
                                 if (!this.have(newPtr)) {
-                                    stepRes.push({ item: newPtr, existed: false });
+                                    stepRes.first?.push({ symbolString, firstSet: terms });
+                                    stepRes.step.push({ item: newPtr, existed: false });
                                     this.closure.push(newPtr);
                                 } else {
-                                    stepRes.push({ item: newPtr, existed: true });
+                                    stepRes.first?.push({ symbolString, firstSet: terms });
+                                    stepRes.step.push({ item: newPtr, existed: true });
                                 }
                             });
                         });
@@ -277,9 +291,9 @@ class LRItemSet {
             if (this.searchIndex === this.closure.length) {
                 this.closureDone = true;
             }
-            steps.push(stepRes);
+            closureSteps.push(stepRes);
         }
-        return steps;
+        return closureSteps;
     }
 
     /**
@@ -334,7 +348,7 @@ class LRItemSet {
                 }
             }
             if (!find) {
-                n.push(this.closure[i]);
+                n.push(this.closure[i].clone());
             }
         }
         this.closure = [...this.kernel, ...n];
@@ -373,7 +387,7 @@ class LRItemSet {
 type AutomatonState = LRItemSet;
 type ParseAlgorithm = "LR0" | "LR1" | "LR1_LALR1" | "LR0_LALR1";
 
-interface StateClosureResult { state: LRItemSet, steps: Array<Array<ClosureStep>> }
+interface StateClosureResult { state: LRItemSet, steps: ClosureSteps }
 interface AppendStateResult { from: number, targets: Array<{ symbol: _Symbol, state: LRItemSet }> }
 interface MergeLr1StatesResult {
     mergeMap: Map<number, number>,
@@ -424,7 +438,7 @@ class Automaton {
         if (this.states[stateId] === undefined) {
             throw new ParserError(PARSER_EXCEPTION_MSG.AUTOMATON_STATES_NOT_FOUND);
         }
-        let steps: Array<Array<ClosureStep>>;
+        let steps: ClosureSteps;
         if (algo === "LR0" || algo === "LR0_LALR1") {
             steps = this.states[stateId].calcClosure("LR0");
         } else {
@@ -1180,7 +1194,8 @@ class InteractiveLrParser {
 export {
     InteractiveLrParser, LRItem, LRItemSet,
     Action, Shift, Reduce, Goto, Accept,
-    type ClosureStep,
+    type FirstResult,
+    type ClosureStepItem, type ClosureStep, type ClosureSteps,
     type ParseAlgorithm, type AppendStateResult,
     type StateClosureResult,
     type MergeLr1StatesResult,

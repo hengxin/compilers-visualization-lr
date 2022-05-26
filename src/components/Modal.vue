@@ -2,12 +2,15 @@
     <div class="__g-modal-mask" v-show="visible"></div>
     <div class="__g-modal-wrap" v-show="visible">
         <div class="__g-modal">
-            <button type="button"
-                class="__g-modal-close"
-                @click="close()">
-                <i class="bi bi-x"></i>
-            </button>
-            <div class="__g-modal-header">{{ title }}</div>
+            <div class="__g-modal-header">
+                <button type="button"
+                    class="__g-modal-close"
+                    @click="close()">
+                    <i class="bi bi-x"></i>
+                </button>
+                <slot name="header" v-if="$slots.header"></slot>
+                <span class="__g-modal-title" v-else>{{ title }}</span>
+            </div>
             <div class="__g-modal-body">
                 <slot></slot>
             </div>
@@ -55,9 +58,9 @@ export default defineComponent({
 }
 
 .__g-modal {
-    position: relative;
     margin: 100px auto;
     background-color: white;
+    width: fit-content;
     max-width: calc(100% - 64px);
     border-radius: 2px;
     box-shadow: 0 0 8px 2px gray;
@@ -65,10 +68,11 @@ export default defineComponent({
 
 .__g-modal-close {
     position: absolute;
-    top: 0;
+    top: 50%;
     right: 0;
     width: 36px;
     height: 36px;
+    transform: translateY(-50%);
     background-color: transparent;
     border: none;
     padding: 0;
@@ -84,9 +88,13 @@ export default defineComponent({
 }
 
 .__g-modal-header {
-    height: 36px;
-    padding: 8px 16px;
+    position: relative;
+    min-height: 36px;
+    padding: 8px 36px 8px 16px;
     border-bottom: 1px solid gainsboro;
+}
+
+.__g-modal-title {
     line-height: 20px;
     font-weight: bold;
     font-size: 16px;
