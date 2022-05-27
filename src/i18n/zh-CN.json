@@ -27,9 +27,11 @@
             "FirstSet": "First集合",
             "Rule": "产生式",
             "Closure": "闭包",
+            "Title": "单步计算闭包",
             "Next": "下一项",
             "Calculate": "计算",
-            "Done": "完成"
+            "Done": "完成",
+            "Close": "关闭"
         },
         "ParseTable": {
             "Title": "语法分析表"
@@ -46,6 +48,7 @@
             "CurrentState": "当前状态：",
             "CalcualteClosure": "计算闭包",
             "StepClosure": "单步计算",
+            "StepClosureStep": "下一步",
             "AppendStates": "扩展状态",
             "Skip": "跳过",
             "ManualMode": "手动模式",

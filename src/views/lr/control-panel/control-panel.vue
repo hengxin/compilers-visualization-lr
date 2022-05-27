@@ -11,9 +11,10 @@
                 <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure(true)">{{ t('LR.ControlPanel.StepClosure') }}</GButton>
                 <GButton v-show="showCalcClosureButton" type="success" @click="CalcClosure()">{{ t('LR.ControlPanel.CalcualteClosure') }}</GButton>
                 <GButton v-show="showAppendStatesButton" type="success" @click="AppendStates()">{{ t('LR.ControlPanel.AppendStates') }}</GButton>
-                <GButton v-show="!manual" type="info" @click="skipAutomaton()">{{ t('LR.ControlPanel.Skip') }}</GButton>
+                <GButton v-show="showSkipButton" type="info" @click="skipAutomaton()">{{ t('LR.ControlPanel.Skip') }}</GButton>
+                <GButton v-show="showClosureStepButton" type="success" @click="calcClosureStep()">{{ t('LR.ControlPanel.StepClosureStep') }}</GButton>
             </div>
-            <div class="control-panel-group">
+            <div class="control-panel-group" v-show="!lrStore.showClosureModal">
                 <span>
                     {{ t('LR.ControlPanel.ManualMode') }}
                     <a :href="t('GuideURLs.ManualMode')" target="_blank">
@@ -77,15 +78,16 @@ enum ParserStatus {
 }
 const parserStatus = ref(ParserStatus.Automaton);
 
-const showCalcClosureButton = computed(() => 
-    manual.value || (!lrStore.stateFlags[currentStateId.value].closureDone && automatonStatus.value === AutomatonStatus.Calculate));
+const showCalcClosureButton = computed(() => !lrStore.showClosureModal &&
+    (manual.value || (!lrStore.stateFlags[currentStateId.value].closureDone && automatonStatus.value === AutomatonStatus.Calculate)));
 const showAppendStatesButton = computed(() => {
     const flags = lrStore.stateFlags[currentStateId.value];
-    return manual.value || (flags.closureDone && !flags.appended && automatonStatus.value === AutomatonStatus.Calculate);
+    return !lrStore.showClosureModal &&
+        (manual.value || (flags.closureDone && !flags.appended && automatonStatus.value === AutomatonStatus.Calculate));
 });
-// const showMergeLr1StatesButton = computed(() => algorithm.value === "LR1_LALR1" && (manual.value || automatonStatus.value === AutomatonStatus.Merge));
-const showCalcParseTableButton = computed(() => !manual.value && automatonStatus.value === AutomatonStatus.Done);
-
+const showCalcParseTableButton = computed(() => !manual.value && automatonStatus.value === AutomatonStatus.Done && !lrStore.showClosureModal);
+const showSkipButton = computed(() => !lrStore.showClosureModal && !manual.value);
+const showClosureStepButton = computed(() => lrStore.showClosureModal);
 async function CalcClosure(step: boolean = false) {
     const res = parser.automaton.CalcStateClosure(currentStateId.value, algorithm.value);
     if (algorithm.value === "LR1" || algorithm.value === "LR1_LALR1") {
@@ -93,9 +95,13 @@ async function CalcClosure(step: boolean = false) {
     }
     lrStore.stateFlags[currentStateId.value].closureDone = true;
     if (step) {
-        EventBus.publish("lr", "ClosureStep", res);
+        EventBus.publish("lr", "InitClosureStep", res);
     }
     await EventBus.publish("lr", "State" + currentStateId.value + "Closure", res.state);
+}
+
+function calcClosureStep() {
+    EventBus.publish("lr", "ClosureStep");
 }
 
 async function AppendStates() {
@@ -198,7 +204,7 @@ function skipParse() {
 }
 
 function reset() {
-    EventBus.publish("lr", "Reset");
+    EventBus.publish("lr", "InputPanelReset");
     // 为什么不用重新设置ParserStauts和AutomatonStatus?
     // 因为reset后，index的v-if会直接将该组件卸载，重新加载就直接重新初始化了。
 }

@@ -1,9 +1,15 @@
 <template>
     <GModal v-model:visible="showClosureModal" @close="reset()"
+        :title="t('LR.ClosureModal.Title')"
         width="calc(100% - 256px)">
         <div class="info-container">
-            <div v-if="algorithm !== 'LR0'">
-                <div class="first-set-panel">
+            <div class="rule-list">
+                <div class="panel-title">{{ t('LR.ClosureModal.Rule') }}</div>
+                <RuleLine v-for="(item, index) in ruleList" :rule="item.rule" :index="index"
+                    style="margin-bottom: 4px;"></RuleLine>
+            </div>
+            <div class="first-set-panel" v-if="algorithm !== 'LR0'">
+                <div style="width:100%">
                     <div class="panel-title">{{ t('LR.ClosureModal.FirstSet') }}</div>
                     <FirstSetTable :first-set="firstSet" style="max-width: 100%;"></FirstSetTable>
                 </div>
@@ -17,11 +23,6 @@
                         <span>}</span>
                     </div>
                 </div>
-            </div>
-            <div class="rule-list">
-                <div class="panel-title">{{ t('LR.ClosureModal.Rule') }}</div>
-                <RuleLine v-for="(item, index) in ruleList" :rule="item.rule" :index="index"
-                    style="margin-bottom: 4px;"></RuleLine>
             </div>
         </div>
         <div class="item-list">
@@ -39,16 +40,13 @@
                 <span v-show="index === idx" class="lr-item-arrow">→</span>
             </div>
         </div>
-        <template #header>
-            <GButton @click="closureStep()" type="success">{{
-                    stepState === StepState.Calculate ? t("LR.ClosureModal.Calculate") :
-                        (stepState === StepState.Next ? t("LR.ClosureModal.Next") : t("LR.ClosureModal.Done"))
-            }}</GButton>
+        <template #footer>
+            <GButton @click="reset()">{{ t('LR.ClosureModal.Close') }}</GButton>
         </template>
     </GModal>
 </template>
 <script lang="ts">
-import { defineComponent, onUnmounted, PropType, ref } from "vue";
+import { computed, defineComponent, onUnmounted, PropType, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { MessageSchema } from "@/i18n";
 import { useLrStore } from "@/stores";
@@ -76,8 +74,8 @@ export default defineComponent({
     },
     setup() {
         const { t } = useI18n<{ message: MessageSchema }>({ useScope: "global" });
-        const store = useLrStore();
-        const showClosureModal = ref(false);
+        const lrStore = useLrStore();
+        const showClosureModal = computed(() => lrStore.showClosureModal);
         const parser = GetParser();
         const ruleList = ref<Array<{ rule: Rule, highlight: boolean }>>([]);
         ruleList.value = parser.store.rules.map((rule) => ({ rule, highlight: false }));
@@ -90,8 +88,8 @@ export default defineComponent({
         let steps: ClosureSteps = [];
         const idx = ref(-1);
         // 接收事件总线指令，开始进行单步计算。
-        function handleClosureStep(res: StateClosureResult) {
-            showClosureModal.value = true;
+        function handleInitClosureStep(res: StateClosureResult) {
+            lrStore.showClosureModal = true;
             closure.value = res.state.kernel.map((item) => {
                 closureRaw.push(item);
                 return { item, highlight: false };
@@ -100,13 +98,9 @@ export default defineComponent({
             steps.forEach(step => firstResults.value.push(step.first))
             nextStep();
         }
-        const unsubscribe = [
-            EventBus.subscribe("lr", "ClosureStep", handleClosureStep),
-        ];
-        onUnmounted(() => unsubscribe.forEach(fn => fn()));
 
         let stepState = ref<StepState>(StepState.Calculate);
-        function closureStep() {
+        function handleClosureStep() {
             if (stepState.value === StepState.Calculate) {
                 calculateStep();
             } else if (stepState.value === StepState.Next) {
@@ -115,6 +109,12 @@ export default defineComponent({
                 reset();
             }
         }
+        const unsubscribe = [
+            EventBus.subscribe("lr", "InitClosureStep", handleInitClosureStep),
+            EventBus.subscribe("lr", "ClosureStep", handleClosureStep),
+        ];
+        onUnmounted(() => unsubscribe.forEach(fn => fn()));
+
         function calculateStep() {
             if (steps[idx.value].step.length === 0) {
                 nextStep();
@@ -154,13 +154,13 @@ export default defineComponent({
             closureRaw = [];
             firstResults.value = [];
             steps = [];
-            showClosureModal.value = false;
+            lrStore.showClosureModal = false;
             stepState.value = StepState.Calculate;
         }
 
         return {
             t,
-            algorithm: store.algorithm,
+            algorithm: lrStore.algorithm,
             showClosureModal,
             ruleList,
             closure,
@@ -168,7 +168,7 @@ export default defineComponent({
             firstResults,
             StepState,
             stepState,
-            closureStep,
+            handleClosureStep,
             reset,
         }
     }
@@ -193,8 +193,10 @@ export default defineComponent({
 }
 
 .first-set-panel {
-    width: fit-content;
-    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
 }
 
 .panel-title {

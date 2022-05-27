@@ -16,6 +16,7 @@ export const useLrStore = defineStore("lr", {
         currentStateId: 0,
         showControlPanel: false,
         showAutomaton: false,
+        showClosureModal: false,
         showParseTable: false,
         showParseTree: false,
         stateFlags: {

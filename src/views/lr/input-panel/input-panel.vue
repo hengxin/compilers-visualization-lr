@@ -128,7 +128,7 @@ export default defineComponent({
         }
         const showTokenContent = ref(true);
 
-        function handleReset() {
+        function handleInputPanelReset() {
             grammar.value = "";
             text.value = "";
             ruleList.value = [];
@@ -139,7 +139,7 @@ export default defineComponent({
             lrStore.algorithm = algorithm.value;
         }
 
-        const unsubscribe = [EventBus.subscribe("lr", "Reset", handleReset)];
+        const unsubscribe = [EventBus.subscribe("lr", "InputPanelReset", handleInputPanelReset)];
         onUnmounted(() => unsubscribe.forEach(fn => fn()));
 
         return {
