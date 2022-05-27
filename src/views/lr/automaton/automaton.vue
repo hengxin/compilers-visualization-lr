@@ -202,6 +202,9 @@ export default defineComponent({
             let toSelf: Array<{ symbol: _Symbol, state: LRItemSet }> = [];
 
             let minTargetColumnIdx = nextColumnIdx;
+            const currentColumnOldCount = currentColumn.stateIds.length;
+            const COLUMN_STATES_MIN_COUNT = 5;
+            // 如果当前列的State数量太少，就往当前列添加，不往下一列添加了。
             res.targets.forEach((target) => {
                 if (stateItems.value.has(target.state.id)) {
                     // 指向已有的State
@@ -221,9 +224,15 @@ export default defineComponent({
                 } else {
                     // 指向新的State
                     initStateFlag(target.state.id);
-                    stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, nextColumnIdx));
-                    nextColumn.stateIds.push(target.state.id);
-                    toRight.push(target);
+                    if (currentColumnIdx != 0 && currentColumn.stateIds.length < COLUMN_STATES_MIN_COUNT) {
+                        stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, currentColumnIdx));
+                        currentColumn.stateIds.push(target.state.id);
+                        toThisColumn.push(target);
+                    } else {
+                        stateItems.value.set(target.state.id, generateStateItemData(target.state, 0, 0, nextColumnIdx));
+                        nextColumn.stateIds.push(target.state.id);
+                        toRight.push(target);
+                    }
                 }
             });
 
@@ -270,9 +279,27 @@ export default defineComponent({
             }
 
             // 2. 放置新添加的State的位置
+            // 2.1 新添加到本列下方的State
+            const oldBottomStateRef = stateRefs.get(currentColumn.stateIds[currentColumnOldCount - 1])!;
+            let bottom = oldBottomStateRef.offsetTop + oldBottomStateRef.offsetHeight;
+            for(let i = currentColumnOldCount; i < currentColumn.stateIds.length; i++) {
+                const stateId = currentColumn.stateIds[i];
+                const stateItemData = stateItems.value.get(stateId)!;
+                stateItemData.left = currentColumn.left;
+                stateItemData.top = bottom + GAP_STATE;
+                await nextTick();
+                let stateRef = stateRefs.get(stateId)!;
+                bottom = stateRef.offsetTop + stateRef.offsetHeight;
+                currentColumn.width = Math.max(currentColumn.width, stateRef.offsetWidth);
+            }
+            totalHeight.value = Math.max(totalHeight.value, bottom);
+            totalWidth.value = Math.max(totalWidth.value, currentColumn.left + currentColumn.width);
+            currentColumn.height = bottom;
+            
+            // 2.2 新添加到右侧一列的State
             let gapOfColumns = GAP_MARGIN * 2 + GAP_LINE *
                 Math.max(currentColumn.linesPassByRight.length, nextColumn.linesPassByLeft.length);
-            let bottom = -GAP_STATE;
+            bottom = -GAP_STATE;
             nextColumn.left = currentColumn.left + currentColumn.width + gapOfColumns;
             for (let i = 0; i < nextColumn.stateIds.length; i++) {
                 let stateId = nextColumn.stateIds[i];
@@ -286,7 +313,7 @@ export default defineComponent({
             }
             totalHeight.value = Math.max(totalHeight.value, bottom);
             totalWidth.value = Math.max(totalWidth.value, nextColumn.left + nextColumn.width);
-            nextColumn.height = bottom;
+            nextColumn.height = bottom > 0 ? bottom : 0;
             // 3. 从受影响的最初一列到最后一列，右移并重绘
             await ShiftColumns(minTargetColumnIdx);
         }
